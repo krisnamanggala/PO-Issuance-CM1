@@ -2,6 +2,8 @@ import { currencyCodes, type PORecord, type ValidatedPOInput } from "./po";
 
 type DatabasePORevision = {
   id: number;
+  previous_revision_id: number | null;
+  revision_reason: string;
   po_number: string;
   revision_number: number;
   released_date: string;
@@ -52,6 +54,8 @@ function decimal(value: string | number | null | undefined) {
 export function fromDatabase(record: DatabasePORevision): PORecord {
   return {
     id: Number(record.id),
+    previousRevisionId: record.previous_revision_id === null || record.previous_revision_id === undefined ? null : Number(record.previous_revision_id),
+    revisionReason: record.revision_reason ?? "",
     poNumber: record.po_number,
     revisionNumber: Number(record.revision_number),
     releasedDate: record.released_date.slice(0, 10),
@@ -95,6 +99,8 @@ export function fromDatabase(record: DatabasePORevision): PORecord {
 
 export function toInsertRecord(value: ValidatedPOInput) {
   return {
+    previous_revision_id: value.previousRevisionId,
+    revision_reason: value.revisionReason,
     po_number: value.poNumber,
     revision_number: value.revisionNumber,
     released_date: value.releasedDate,
@@ -145,6 +151,8 @@ export function toInsertRecord(value: ValidatedPOInput) {
 export function toUpdateRecord(value: ValidatedPOInput) {
   const record = toInsertRecord(value);
   return {
+    previous_revision_id: record.previous_revision_id,
+    revision_reason: record.revision_reason,
     po_number: record.po_number,
     revision_number: record.revision_number,
     released_date: record.released_date,

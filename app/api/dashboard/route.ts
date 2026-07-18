@@ -6,11 +6,11 @@ export async function GET() {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
   try {
-    const { records, bonds, settings } = await loadDashboardData();
+    const { records, bonds, settings, deliveryUpdates, milestones, services } = await loadDashboardData();
     return Response.json({
-      metrics: dashboardMetrics(records, bonds, settings),
-      actions: criticalActions(records, bonds, settings),
-      visuals: dashboardVisuals(records, bonds, settings),
+      metrics: dashboardMetrics(records, bonds, settings, new Date(), deliveryUpdates, milestones, services),
+      actions: criticalActions(records, bonds, settings, new Date(), deliveryUpdates),
+      visuals: dashboardVisuals(records, bonds, settings, new Date(), deliveryUpdates),
       isEmpty: records.length === 0,
       refreshedAt: new Date().toISOString(),
     });

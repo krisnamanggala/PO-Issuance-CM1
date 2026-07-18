@@ -73,7 +73,7 @@ test("adds calculated procurement dashboard, bond history, and protected master 
   ]);
 
   assert.match(dashboard, /Critical Actions/);
-  assert.match(dashboard, /Active POs/);
+  assert.match(dashboard, /Committed PO value/);
   assert.match(dashboard, /currency/);
   assert.match(status, /deliveryStatus/);
   assert.match(status, /bondStatus/);
@@ -83,6 +83,40 @@ test("adds calculated procurement dashboard, bond history, and protected master 
   assert.match(migration, /is_workspace_admin/);
   assert.match(masterApi, /Only workspace administrators/);
   assert.match(alertsApi, /alert_history/);
+});
+
+test("adds normalized execution, cash, service, revision, and management-action data", async () => {
+  const [migration, execution, executionApi, dashboard, status, monitor, alerts] = await Promise.all([
+    source("supabase/migrations/20260718190000_add_executive_monitoring_data.sql"),
+    source("app/execution-board.tsx"),
+    source("app/api/execution/route.ts"),
+    source("app/dashboard-overview.tsx"),
+    source("app/lib/status.ts"),
+    source("app/po-monitor.tsx"),
+    source("app/alerts-board.tsx"),
+  ]);
+
+  assert.match(migration, /create table if not exists public\.delivery_updates/);
+  assert.match(migration, /create table if not exists public\.payment_milestones/);
+  assert.match(migration, /create table if not exists public\.po_services/);
+  assert.match(migration, /previous_revision_id/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /grant select, insert on public\.delivery_updates to authenticated/);
+  assert.match(migration, /delivery_updates_po_revision_idx/);
+  assert.match(migration, /payment_milestones_po_revision_idx/);
+  assert.match(execution, /Delivery & Cash/);
+  assert.match(execution, /Add delivery update/);
+  assert.match(execution, /Add payment milestone/);
+  assert.match(executionApi, /validateDeliveryUpdate/);
+  assert.match(executionApi, /validatePaymentMilestone/);
+  assert.match(dashboard, /Budget headroom/);
+  assert.match(dashboard, /Unpaid cash milestones/);
+  assert.match(dashboard, /Supplier Concentration/);
+  assert.match(status, /revisionDeltaByCurrency/);
+  assert.match(status, /unpaidValueByCurrency/);
+  assert.match(monitor, /Revision reason/);
+  assert.match(alerts, /Action owner/);
+  assert.match(alerts, /Management due date/);
 });
 
 test("enforces the revised vendor and currency contract without removing historical values", async () => {

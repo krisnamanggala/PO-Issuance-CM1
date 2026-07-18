@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 type WorkspaceShellProps = {
-  active: "overview" | "register" | "bonds" | "alerts" | "master" | "settings";
+  active: "overview" | "register" | "execution" | "bonds" | "alerts" | "master" | "settings";
   user: { displayName: string; email: string; role: "admin" | "editor" };
   children: ReactNode;
 };
@@ -10,6 +10,7 @@ type WorkspaceShellProps = {
 const navigation = [
   { key: "overview", href: "/", label: "Overview" },
   { key: "register", href: "/register", label: "PO Register" },
+  { key: "execution", href: "/execution", label: "Delivery & Cash" },
   { key: "bonds", href: "/bonds", label: "Bond Register" },
   { key: "alerts", href: "/alerts", label: "Alerts" },
   { key: "master", href: "/master-data", label: "Master Data" },
@@ -44,4 +45,3 @@ export function WorkspaceShell({ active, user, children }: WorkspaceShellProps) 
     </main>
   );
 }
-

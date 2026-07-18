@@ -25,6 +25,8 @@ export type ServiceInclusion = (typeof serviceInclusionValues)[number];
 
 export type PORecord = {
   id: number;
+  previousRevisionId: number | null;
+  revisionReason: string;
   poNumber: string;
   revisionNumber: number;
   releasedDate: string;
@@ -73,6 +75,8 @@ export type ValidatedPOInput = POInput & {
 };
 
 export type POInputFields = {
+  previousRevisionId: string | number;
+  revisionReason: string;
   poNumber: string;
   revisionNumber: string | number;
   releasedDate: string;
@@ -287,6 +291,8 @@ export function validatePOInput(
   actor: string,
 ): { value: ValidatedPOInput; errors: string[] } {
   const errors: string[] = [];
+  const previousRevisionId = optionalId(source.previousRevisionId, "Previous revision", errors);
+  const revisionReason = String(source.revisionReason ?? "").trim();
   const poNumber = requiredString(source.poNumber, "PO No.", errors);
   const revisionRaw = requiredString(source.revisionNumber, "Revision number", errors);
   const releasedDate = requiredString(source.releasedDate, "Released date", errors);
@@ -343,6 +349,12 @@ export function validatePOInput(
   if (location.length > 250) {
     errors.push("Incoterm location must be 250 characters or fewer.");
   }
+  if (previousRevisionId && !revisionReason) {
+    errors.push("Revision reason is required when creating a new revision.");
+  }
+  if (revisionReason.length > 1000) {
+    errors.push("Revision reason must be 1,000 characters or fewer.");
+  }
 
   const purchasingGroup = canonicalGroup(purchasingGroupRaw);
   if (!purchasingGroup) errors.push("Purchasing group must be ELE, INS, ROT, or PRO.");
@@ -388,6 +400,8 @@ export function validatePOInput(
   return {
     errors,
     value: {
+      previousRevisionId,
+      revisionReason,
       poNumber,
       revisionNumber: Number.parseInt(revisionRaw || "0", 10),
       releasedDate,
@@ -501,6 +515,8 @@ export function parseCsv(text: string): CsvParseResult {
 
 export function csvRowToInput(row: Record<string, string>): POInputFields {
   return {
+    previousRevisionId: "",
+    revisionReason: "",
     poNumber: row.po_number,
     revisionNumber: row.revision_number,
     releasedDate: row.released_date,

@@ -46,6 +46,18 @@ export async function POST(request: Request) {
     const { value, errors } = validatePOInput({ ...payload, vendorId: vendor.id, vendorName: vendor.vendor_name }, actor.email);
     if (errors.length) return Response.json({ error: errors.join(" "), errors }, { status: 400 });
 
+    if (value.previousRevisionId) {
+      const { data: previous, error: previousError } = await supabase
+        .from("po_revisions")
+        .select("id, po_number, revision_number")
+        .eq("id", value.previousRevisionId)
+        .maybeSingle();
+      if (previousError) throw previousError;
+      if (!previous || previous.po_number !== value.poNumber || Number(previous.revision_number) >= value.revisionNumber) {
+        return Response.json({ error: "The previous revision must belong to the same PO and have a lower revision number." }, { status: 400 });
+      }
+    }
+
     const { data, error } = await supabase
       .from("po_revisions")
       .insert(toInsertRecord(value))

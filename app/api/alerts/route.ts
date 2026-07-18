@@ -13,25 +13,29 @@ type AlertUpdate = {
   bondId?: unknown;
   relevantDate?: unknown;
   daysRemaining?: unknown;
+  assignedTo?: unknown;
+  dueDate?: unknown;
+  financialExposure?: unknown;
+  currencyCode?: unknown;
 };
 
 export async function GET() {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
   try {
-    const [{ records, bonds, settings }, alertsResult] = await Promise.all([
+    const [{ records, bonds, settings, deliveryUpdates }, alertsResult] = await Promise.all([
       loadDashboardData(),
       (await createClient()).from("alerts").select("*").order("created_at", { ascending: false }),
     ]);
     if (alertsResult.error) throw alertsResult.error;
     const stored = alertsResult.data ?? [];
     const bySource = new Map(stored.map((alert) => [alert.source_key, alert]));
-    const derived = criticalActions(records, bonds, settings).map((action) => {
+    const derived = criticalActions(records, bonds, settings, new Date(), deliveryUpdates).map((action) => {
       const alert = bySource.get(action.id);
-      return { ...action, sourceKey: action.id, alertId: alert?.id ?? null, alertStatus: alert?.alert_status ?? "open", note: alert?.note ?? "", createdAt: alert?.created_at ?? null, acknowledgedAt: alert?.acknowledged_at ?? null, resolvedAt: alert?.resolved_at ?? null };
+      return { ...action, sourceKey: action.id, alertId: alert?.id ?? null, alertStatus: alert?.alert_status ?? "open", note: alert?.note ?? "", assignedTo: alert?.assigned_to ?? "", dueDate: alert?.due_date ?? null, financialExposure: String(alert?.financial_exposure ?? action.financialExposure ?? action.value), createdAt: alert?.created_at ?? null, acknowledgedAt: alert?.acknowledged_at ?? null, resolvedAt: alert?.resolved_at ?? null };
     });
     const historical = stored.filter((alert) => !derived.some((entry) => entry.sourceKey === alert.source_key)).map((alert) => ({
-      id: alert.source_key, sourceKey: alert.source_key, alertId: alert.id, priority: alert.priority, issueType: alert.alert_type, poNumber: "Historical alert", poRevisionId: alert.po_revision_id, vendorName: "—", projectCode: null, equipmentName: "", relevantDate: alert.relevant_date, daysRemaining: alert.days_remaining, currencyCode: "IDR", value: "0", responsiblePerson: "", bondId: alert.bond_id, alertStatus: alert.alert_status, note: alert.note, createdAt: alert.created_at, acknowledgedAt: alert.acknowledged_at, resolvedAt: alert.resolved_at,
+      id: alert.source_key, sourceKey: alert.source_key, alertId: alert.id, priority: alert.priority, issueType: alert.alert_type, poNumber: "Historical alert", poRevisionId: alert.po_revision_id, vendorName: "—", projectCode: null, equipmentName: "", relevantDate: alert.relevant_date, daysRemaining: alert.days_remaining, currencyCode: alert.currency_code ?? "IDR", value: String(alert.financial_exposure ?? 0), financialExposure: String(alert.financial_exposure ?? 0), responsiblePerson: "", assignedTo: alert.assigned_to ?? "", dueDate: alert.due_date, bondId: alert.bond_id, alertStatus: alert.alert_status, note: alert.note, createdAt: alert.created_at, acknowledgedAt: alert.acknowledged_at, resolvedAt: alert.resolved_at,
     }));
     return Response.json({ alerts: [...derived, ...historical] });
   } catch {
@@ -52,7 +56,10 @@ export async function PUT(request: Request) {
     if (lookupError) throw lookupError;
     const now = new Date().toISOString();
     const note = String(body.note ?? previous?.note ?? "").trim().slice(0, 2000);
-    const update = { alert_status: status, note, acknowledged_at: status === "acknowledged" ? now : previous?.acknowledged_at ?? null, resolved_at: status === "resolved" ? now : status === "open" ? null : previous?.resolved_at ?? null, resolved_by: status === "resolved" ? actor.email : status === "open" ? null : previous?.resolved_by ?? null };
+    const assignedTo = String(body.assignedTo ?? previous?.assigned_to ?? "").trim().slice(0, 200) || null;
+    const dueDateRaw = String(body.dueDate ?? previous?.due_date ?? "").trim();
+    if (dueDateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(dueDateRaw)) return Response.json({ error: "Due date must use YYYY-MM-DD." }, { status: 400 });
+    const update = { alert_status: status, note, assigned_to: assignedTo, due_date: dueDateRaw || null, acknowledged_at: status === "acknowledged" ? now : previous?.acknowledged_at ?? null, resolved_at: status === "resolved" ? now : status === "open" ? null : previous?.resolved_at ?? null, resolved_by: status === "resolved" ? actor.email : status === "open" ? null : previous?.resolved_by ?? null };
     let alert;
     if (previous) {
       const { data, error } = await supabase.from("alerts").update(update).eq("id", previous.id).select().single();
@@ -60,7 +67,9 @@ export async function PUT(request: Request) {
     } else {
       const priority = String(body.priority ?? "medium");
       if (!["critical", "high", "medium"].includes(priority)) return Response.json({ error: "Invalid alert priority." }, { status: 400 });
-      const { data, error } = await supabase.from("alerts").insert({ source_key: sourceKey, po_revision_id: Number(body.poRevisionId) || null, bond_id: Number(body.bondId) || null, priority, alert_type: String(body.alertType ?? "Procurement exception").slice(0, 200), relevant_date: body.relevantDate ? String(body.relevantDate) : null, days_remaining: Number.isInteger(Number(body.daysRemaining)) ? Number(body.daysRemaining) : null, created_by: actor.email, ...update }).select().single();
+      const exposure = Number(body.financialExposure);
+      const currencyCode = String(body.currencyCode ?? "IDR").toUpperCase();
+      const { data, error } = await supabase.from("alerts").insert({ source_key: sourceKey, po_revision_id: Number(body.poRevisionId) || null, bond_id: Number(body.bondId) || null, priority, alert_type: String(body.alertType ?? "Procurement exception").slice(0, 200), relevant_date: body.relevantDate ? String(body.relevantDate) : null, days_remaining: Number.isInteger(Number(body.daysRemaining)) ? Number(body.daysRemaining) : null, financial_exposure: Number.isFinite(exposure) && exposure >= 0 ? exposure : null, currency_code: currencyCode, created_by: actor.email, ...update }).select().single();
       if (error) throw error; alert = data;
     }
     const actionType = status === "acknowledged" ? "acknowledged" : status === "resolved" ? "resolved" : previous ? "updated" : "created";
