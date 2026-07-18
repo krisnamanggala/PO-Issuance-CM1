@@ -1,0 +1,1 @@
+ALTER TABLE `po_revisions` ADD `location` text DEFAULT 'N/A' NOT NULL;

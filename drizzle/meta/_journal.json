@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784303156330,
+      "tag": "0000_faithful_nomad",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784306615128,
+      "tag": "0001_unique_spot",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784341055772,
+      "tag": "0002_supreme_quasar",
+      "breakpoints": true
+    }
+  ]
+}
