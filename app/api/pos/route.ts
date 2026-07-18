@@ -36,10 +36,16 @@ export async function POST(request: Request) {
 
   try {
     const payload = (await request.json()) as Record<string, unknown>;
-    const { value, errors } = validatePOInput(payload, actor.email);
+    const supabase = await createClient();
+    const vendorId = Number(payload.vendorId);
+    if (!Number.isInteger(vendorId) || vendorId < 1) return Response.json({ error: "Choose a vendor from master data." }, { status: 400 });
+    const { data: vendor, error: vendorError } = await supabase.from("vendors").select("id, vendor_name, vendor_code").eq("id", vendorId).maybeSingle();
+    if (vendorError) throw vendorError;
+    if (!vendor) return Response.json({ error: "The selected vendor is no longer available." }, { status: 400 });
+    if (!vendor.vendor_code?.trim()) return Response.json({ error: "The selected vendor needs a vendor code before it can be used." }, { status: 400 });
+    const { value, errors } = validatePOInput({ ...payload, vendorId: vendor.id, vendorName: vendor.vendor_name }, actor.email);
     if (errors.length) return Response.json({ error: errors.join(" "), errors }, { status: 400 });
 
-    const supabase = await createClient();
     const { data, error } = await supabase
       .from("po_revisions")
       .insert(toInsertRecord(value))

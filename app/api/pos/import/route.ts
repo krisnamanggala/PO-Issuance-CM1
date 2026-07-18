@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const [projectsResult, vendorsResult] = await Promise.all([
       supabase.from("projects").select("id, project_code"),
-      supabase.from("vendors").select("id, vendor_name"),
+      supabase.from("vendors").select("id, vendor_name, vendor_code"),
     ]);
     if (projectsResult.error || vendorsResult.error) throw projectsResult.error ?? vendorsResult.error;
     const projects = new Map((projectsResult.data ?? []).map((project) => [project.project_code.toLowerCase(), project]));
@@ -37,17 +37,16 @@ export async function POST(request: Request) {
     const entries = parsed.rows.map((row, index) => {
       const input = csvRowToInput(row);
       const projectCode = row.project_code?.trim();
-      const vendorName = row.vendor_name?.trim();
+      const vendorName = row.vendor_name?.trim() ?? "";
       if (projectCode) {
         const project = projects.get(projectCode.toLowerCase());
         if (!project) errors.push(`Row ${index + 2}: Project code ${projectCode} is not in master data.`);
         else input.projectId = String(project.id);
       }
-      if (vendors.size && vendorName) {
-        const vendor = vendors.get(vendorName.toLowerCase());
-        if (!vendor) errors.push(`Row ${index + 2}: Vendor ${vendorName} is not in master data.`);
-        else input.vendorId = String(vendor.id);
-      }
+      const vendor = vendors.get(vendorName.toLowerCase());
+      if (!vendor) errors.push(`Row ${index + 2}: Vendor ${vendorName || "(blank)"} is not in master data.`);
+      else if (!vendor.vendor_code?.trim()) errors.push(`Row ${index + 2}: Vendor ${vendorName} needs a vendor code before it can be used.`);
+      else input.vendorId = String(vendor.id);
       const result = validatePOInput(input, actor.email);
       result.errors.forEach((message) => errors.push(`Row ${index + 2}: ${message}`));
       return result.value;

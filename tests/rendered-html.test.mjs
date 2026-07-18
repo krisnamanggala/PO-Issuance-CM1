@@ -84,3 +84,24 @@ test("adds calculated procurement dashboard, bond history, and protected master 
   assert.match(masterApi, /Only workspace administrators/);
   assert.match(alertsApi, /alert_history/);
 });
+
+test("enforces the revised vendor and currency contract without removing historical values", async () => {
+  const [po, monitor, bonds, masterApi, migration] = await Promise.all([
+    source("app/lib/po.ts"),
+    source("app/po-monitor.tsx"),
+    source("app/bond-register.tsx"),
+    source("app/api/master-data/route.ts"),
+    source("supabase/migrations/20260718170000_enforce_vendor_code_and_currency_options.sql"),
+  ]);
+
+  assert.match(po, /currencyCodes = \["IDR", "USD", "AUD", "JPY", "CNY", "GBP", "EUR"\]/);
+  assert.match(po, /Currency must be IDR, USD, AUD, JPY, CNY, GBP, or EUR/);
+  assert.match(monitor, /optionLabel=\{\(vendor\) => `\$\{vendor\.vendor_name\} \(\$\{vendor\.vendor_code\}\)`\}/);
+  assert.doesNotMatch(monitor, /<fieldset><legend>Operational status<\/legend>/);
+  assert.doesNotMatch(bonds, /Input label="Expected bond value"/);
+  assert.match(bonds, /<span>PO No\.<\/span>/);
+  assert.match(masterApi, /Vendor code is required\./);
+  assert.match(migration, /vendors_vendor_code_required/);
+  assert.match(migration, /po_revisions_currency_code_allowed/);
+  assert.match(migration, /bonds_currency_code_allowed/);
+});

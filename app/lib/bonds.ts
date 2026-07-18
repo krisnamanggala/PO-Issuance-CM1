@@ -1,4 +1,5 @@
 import type { BondRecord, BondType } from "./status";
+import { currencyCodes } from "./po";
 
 export const bondTypes = ["PB", "WB"] as const;
 
@@ -41,11 +42,11 @@ function optionalAmount(value: unknown, label: string, errors: string[]) {
 export function validateBondInput(input: Partial<BondInput>, actor: string) {
   const errors: string[] = [];
   const revision = Number(input.poRevisionId);
-  if (!Number.isInteger(revision) || revision < 1) errors.push("Choose the PO revision for this bond.");
+  if (!Number.isInteger(revision) || revision < 1) errors.push("Choose the PO No. for this bond.");
   const bondType = String(input.bondType ?? "").trim().toUpperCase();
   if (!(bondTypes as readonly string[]).includes(bondType)) errors.push("Bond type must be PB or WB.");
   const currencyCode = String(input.currencyCode ?? "IDR").trim().toUpperCase() || "IDR";
-  if (!/^[A-Z]{3}$/.test(currencyCode)) errors.push("Currency must use a three-letter ISO code.");
+  if (!(currencyCodes as readonly string[]).includes(currencyCode)) errors.push("Currency must be IDR, USD, AUD, JPY, CNY, GBP, or EUR.");
   const expiryDate = optionalDate(input.expiryDate, "Expiry date", errors);
   const releasedDate = optionalDate(input.releasedDate, "Released date", errors);
   const receivedDate = optionalDate(input.receivedDate, "Received date", errors);

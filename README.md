@@ -5,7 +5,7 @@ TPEC CM1 PO Monitoring is a workspace-restricted procurement operations applicat
 ## Workspace structure
 
 - **Overview** — eight live risk indicators, a combined Critical Actions queue, currency-separated values, delivery/bond status distribution, vendor delay and project-risk summaries.
-- **PO Register** — current or all revisions, search and operational filters, details, edits, new revisions, CSV intake, payment milestones, services, delivery and cancellation flags.
+- **PO Register** — current or all revisions, search and register filters, details, edits, new revisions, CSV intake, payment milestones, services, and delivery schedules.
 - **Bond Register** — PB/WB records, expiry status, bond CSV intake, and retained create/edit/release/extension history.
 - **Alerts** — derived exceptions with Open, Acknowledged and Resolved workflow records.
 - **Master Data** — projects, vendors, static category values, and master-data activation controls.
@@ -32,6 +32,7 @@ Apply the SQL migrations in chronological order. For an already-running workspac
 
 ```text
 supabase/migrations/20260718154000_add_procurement_dashboard_data.sql
+supabase/migrations/20260718170000_enforce_vendor_code_and_currency_options.sql
 ```
 
 This is an additive migration: it does not delete PO data or rename existing fields. It adds:
@@ -49,9 +50,11 @@ Run it from Supabase SQL Editor, the Supabase CLI, or the connected Supabase mig
 
 PO and bond templates are separate downloads in their registers.
 
-- PO import requires the existing PO contract, including ISO release/ETA dates, allowed groups (`ELE`, `INS`, `ROT`, `PRO`), payment terms, Incoterms, services, and valid PB/WB values. PB/WB validity remains `DD/MM/YYYY` in the PO form and is normalized for storage.
-- A supplied PO project code must already be in Project master data. When vendor master data exists, the supplied vendor must match it. Imports reject duplicate PO/revision keys and do not insert a batch with validation errors.
-- Bond import requires a PO/revision match, an active unique bond identity, ISO dates, and a three-letter currency. A bond number is required for safe CSV duplicate protection.
+- PO import requires the existing PO contract, including ISO release/ETA dates, allowed groups (`ELE`, `INS`, `ROT`, `PRO`), payment terms, Incoterms, services, valid PB/WB values, and a currency of `IDR`, `USD`, `AUD`, `JPY`, `CNY`, `GBP`, or `EUR`. PB/WB validity remains `DD/MM/YYYY` in the PO form and is normalized for storage.
+- A supplied PO project code must already be in Project master data. Every supplied vendor must match an active Vendor master record, whose vendor code is required. Imports reject duplicate PO/revision keys and do not insert a batch with validation errors.
+- Bond import requires a PO/revision match, an active unique bond identity, ISO dates, one of the allowed currencies above, and a bond number for safe CSV duplicate protection.
+
+The PO operational-status and expected-bond-value controls are no longer entry fields. Their historic database columns are intentionally retained so existing historical records remain readable; new register records use the revised form contract.
 
 The intake dialogs show the selected row count before confirmation and display field-level errors when a file is rejected.
 

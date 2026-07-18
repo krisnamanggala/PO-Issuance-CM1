@@ -1,5 +1,6 @@
 export const purchasingGroups = ["ELE", "INS", "ROT", "PRO"] as const;
 export const paymentTerms = ["T/T", "SKBDN"] as const;
+export const currencyCodes = ["IDR", "USD", "AUD", "JPY", "CNY", "GBP", "EUR"] as const;
 export const yesNoValues = ["Yes", "No"] as const;
 export const serviceInclusionValues = ["Included", "Not included"] as const;
 export const incoterms = [
@@ -18,6 +19,7 @@ export const incoterms = [
 
 export type PurchasingGroup = (typeof purchasingGroups)[number];
 export type PaymentTerm = (typeof paymentTerms)[number];
+export type CurrencyCode = (typeof currencyCodes)[number];
 export type Incoterm = (typeof incoterms)[number]["value"];
 export type ServiceInclusion = (typeof serviceInclusionValues)[number];
 
@@ -36,7 +38,7 @@ export type PORecord = {
   vendorName: string;
   budget: string;
   contractValue: string;
-  currencyCode: string;
+  currencyCode: CurrencyCode;
   deliveryLeadTimeWeeks: number;
   incoterm: Incoterm;
   etaRosAtSite: string;
@@ -128,10 +130,6 @@ export const csvHeaders = [
   "pb_validity",
   "wb",
   "wb_validity",
-  "delivery_completed_at",
-  "cancelled_at",
-  "responsible_person",
-  "revision_review_required",
   "supervision_installation_assist_included",
   "supervision_installation_assist_mandays",
   "supervision_installation_assist_cost_idr",
@@ -143,15 +141,10 @@ export const csvHeaders = [
   "training_cost_idr",
 ] as const;
 
-// Earlier PO templates remain importable. The new operational fields are optional
-// for historic records and appear in every newly downloaded template.
+// Project code remains optional for legacy PO records. Operational-status fields
+// are retained in the database for historical reporting but are no longer imported.
 export const requiredCsvHeaders = csvHeaders.filter((header) => ![
   "project_code",
-  "currency_code",
-  "delivery_completed_at",
-  "cancelled_at",
-  "responsible_person",
-  "revision_review_required",
 ].includes(header));
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -229,6 +222,12 @@ function optionalId(value: unknown, label: string, errors: string[]) {
   return Number(raw);
 }
 
+function requiredId(value: unknown, label: string, errors: string[]) {
+  const id = optionalId(value, label, errors);
+  if (id === null) errors.push(`${label} is required.`);
+  return id;
+}
+
 function serviceIncluded(value: unknown, label: string, errors: string[]) {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (value === true || normalized === "included") return true;
@@ -297,7 +296,7 @@ export function validatePOInput(
     errors,
   );
   const projectId = optionalId(source.projectId, "Project", errors);
-  const vendorId = optionalId(source.vendorId, "Vendor", errors);
+  const vendorId = requiredId(source.vendorId, "Vendor", errors);
   const location = requiredString(source.location, "Incoterm location", errors);
   const equipmentName = requiredString(source.equipmentName, "Equipment name", errors);
   const vendorName = requiredString(source.vendorName, "Vendor name", errors);
@@ -335,8 +334,8 @@ export function validatePOInput(
   if (!moneyPattern.test(contractValue)) {
     errors.push("Contract value must be a non-negative IDR amount with up to two decimals.");
   }
-  if (!/^[A-Z]{3}$/.test(currencyCode)) {
-    errors.push("Currency must use a three-letter ISO code such as IDR or USD.");
+  if (!(currencyCodes as readonly string[]).includes(currencyCode)) {
+    errors.push("Currency must be IDR, USD, AUD, JPY, CNY, GBP, or EUR.");
   }
   if (milestoneDetails.length > 2000) {
     errors.push("Milestone details must be 2,000 characters or fewer.");
@@ -402,7 +401,7 @@ export function validatePOInput(
       vendorName,
       budget: canonicalMoney(budget),
       contractValue: canonicalMoney(contractValue),
-      currencyCode,
+      currencyCode: (currencyCodes as readonly string[]).includes(currencyCode) ? currencyCode as CurrencyCode : "IDR",
       deliveryLeadTimeWeeks: Number.parseInt(leadTimeRaw || "0", 10),
       incoterm: incoterm ?? "EXW",
       etaRosAtSite,
@@ -523,10 +522,10 @@ export function csvRowToInput(row: Record<string, string>): POInputFields {
     pbValidity: row.pb_validity,
     wb: row.wb,
     wbValidity: row.wb_validity,
-    deliveryCompletedAt: row.delivery_completed_at,
-    cancelledAt: row.cancelled_at,
-    responsiblePerson: row.responsible_person,
-    revisionReviewRequired: row.revision_review_required || "No",
+    deliveryCompletedAt: "",
+    cancelledAt: "",
+    responsiblePerson: "",
+    revisionReviewRequired: "No",
     supervisionInstallationAssistIncluded: row.supervision_installation_assist_included,
     supervisionInstallationAssistMandays: row.supervision_installation_assist_mandays,
     supervisionInstallationAssistCost: row.supervision_installation_assist_cost_idr,

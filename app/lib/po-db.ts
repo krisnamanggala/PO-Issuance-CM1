@@ -1,4 +1,4 @@
-import type { PORecord, ValidatedPOInput } from "./po";
+import { currencyCodes, type PORecord, type ValidatedPOInput } from "./po";
 
 type DatabasePORevision = {
   id: number;
@@ -65,7 +65,7 @@ export function fromDatabase(record: DatabasePORevision): PORecord {
     vendorName: record.vendor_name,
     budget: String(record.budget),
     contractValue: String(record.contract_value),
-    currencyCode: record.currency_code ?? "IDR",
+    currencyCode: (currencyCodes as readonly string[]).includes(record.currency_code) ? record.currency_code as PORecord["currencyCode"] : "IDR",
     deliveryLeadTimeWeeks: Number(record.delivery_lead_time_weeks),
     incoterm: record.incoterm,
     etaRosAtSite: record.eta_ros_at_site.slice(0, 10),

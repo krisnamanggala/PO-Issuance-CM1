@@ -33,8 +33,9 @@ export async function POST(request: Request) {
       const { data, error } = await supabase.from("projects").insert({ project_code: projectCode, project_name: projectName, created_by: actor.email, updated_by: actor.email }).select().single(); if (error) throw error; return Response.json({ record: data }, { status: 201 });
     }
     if (kind === "vendor") {
-      const vendorName = String(body.vendorName ?? "").trim(); const vendorCode = String(body.vendorCode ?? "").trim() || null;
+      const vendorName = String(body.vendorName ?? "").trim(); const vendorCode = String(body.vendorCode ?? "").trim().toUpperCase();
       if (!vendorName) return Response.json({ error: "Vendor name is required." }, { status: 400 });
+      if (!vendorCode) return Response.json({ error: "Vendor code is required." }, { status: 400 });
       const { data, error } = await supabase.from("vendors").insert({ vendor_name: vendorName, vendor_code: vendorCode, created_by: actor.email, updated_by: actor.email }).select().single(); if (error) throw error; return Response.json({ record: data }, { status: 201 });
     }
     return Response.json({ error: "Unsupported master-data item." }, { status: 400 });
@@ -61,4 +62,3 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Unsupported master-data item." }, { status: 400 });
   } catch { return Response.json({ error: "The update could not be saved." }, { status: 500 }); }
 }
-
