@@ -120,7 +120,7 @@ test("adds normalized execution, cash, service, revision, and management-action 
 });
 
 test("enforces the revised vendor and currency contract without removing historical values", async () => {
-  const [po, monitor, bonds, master, masterApi, migration, vendorMigration, vendorTextMigration, styles] = await Promise.all([
+  const [po, monitor, bonds, master, masterApi, migration, vendorMigration, vendorTextMigration, uppercaseMigration, styles] = await Promise.all([
     source("app/lib/po.ts"),
     source("app/po-monitor.tsx"),
     source("app/bond-register.tsx"),
@@ -129,6 +129,7 @@ test("enforces the revised vendor and currency contract without removing histori
     source("supabase/migrations/20260718170000_enforce_vendor_code_and_currency_options.sql"),
     source("supabase/migrations/20260718180000_make_vendor_code_integer.sql"),
     source("supabase/migrations/20260719100000_make_vendor_code_text.sql"),
+    source("supabase/migrations/20260719110000_uppercase_master_data.sql"),
     source("app/globals.css"),
   ]);
 
@@ -147,6 +148,11 @@ test("enforces the revised vendor and currency contract without removing histori
   assert.match(masterApi, /Vendor code must be 100 characters or fewer\./);
   assert.match(master, /type="text" maxLength=\{100\}/);
   assert.match(master, /mandatory text and may contain letters, numbers, or leading zeroes/);
+  assert.match(master, /setCode\(event\.target\.value\.toUpperCase\(\)\)/);
+  assert.match(master, /setName\(event\.target\.value\.toUpperCase\(\)\)/);
+  assert.match(masterApi, /projectName.*trim\(\)\.toUpperCase\(\)/);
+  assert.match(masterApi, /vendorName.*trim\(\)\.toUpperCase\(\)/);
+  assert.match(masterApi, /vendorCodeRaw.*trim\(\)\.toUpperCase\(\)/);
   assert.match(migration, /vendors_vendor_code_required/);
   assert.match(migration, /po_revisions_currency_code_allowed/);
   assert.match(migration, /bonds_currency_code_allowed/);
@@ -154,5 +160,9 @@ test("enforces the revised vendor and currency contract without removing histori
   assert.match(vendorMigration, /alter column vendor_code set not null/);
   assert.match(vendorTextMigration, /alter column vendor_code type text using vendor_code::text/);
   assert.match(vendorTextMigration, /btrim\(vendor_code\) <> ''/);
+  assert.match(uppercaseMigration, /alter column project_code type text/);
+  assert.match(uppercaseMigration, /projects_project_code_uppercase/);
+  assert.match(uppercaseMigration, /vendors_vendor_name_uppercase/);
+  assert.match(uppercaseMigration, /po_revisions_vendor_name_uppercase/);
   assert.match(styles, /\.master-panel \.panel-heading \{ border-bottom: 0; \}/);
 });

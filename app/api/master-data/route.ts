@@ -28,12 +28,12 @@ export async function POST(request: Request) {
     const body = await request.json() as Record<string, unknown>;
     const kind = String(body.kind ?? ""); const supabase = await createClient();
     if (kind === "project") {
-      const projectCode = String(body.projectCode ?? "").trim().toUpperCase(); const projectName = String(body.projectName ?? "").trim();
+      const projectCode = String(body.projectCode ?? "").trim().toUpperCase(); const projectName = String(body.projectName ?? "").trim().toUpperCase();
       if (!projectCode) return Response.json({ error: "Project code is required." }, { status: 400 });
       const { data, error } = await supabase.from("projects").insert({ project_code: projectCode, project_name: projectName, created_by: actor.email, updated_by: actor.email }).select().single(); if (error) throw error; return Response.json({ record: data }, { status: 201 });
     }
     if (kind === "vendor") {
-      const vendorName = String(body.vendorName ?? "").trim(); const vendorCodeRaw = String(body.vendorCode ?? "").trim();
+      const vendorName = String(body.vendorName ?? "").trim().toUpperCase(); const vendorCodeRaw = String(body.vendorCode ?? "").trim().toUpperCase();
       if (!vendorName) return Response.json({ error: "Vendor name is required." }, { status: 400 });
       if (!vendorCodeRaw) return Response.json({ error: "Vendor code is required." }, { status: 400 });
       if (vendorCodeRaw.length > 100) return Response.json({ error: "Vendor code must be 100 characters or fewer." }, { status: 400 });
