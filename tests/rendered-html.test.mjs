@@ -99,6 +99,11 @@ test("enforces the revised vendor and currency contract without removing histori
   assert.match(monitor, /optionLabel=\{\(vendor\) => `\$\{vendor\.vendor_name\} \(\$\{vendor\.vendor_code\}\)`\}/);
   assert.doesNotMatch(monitor, /<fieldset><legend>Operational status<\/legend>/);
   assert.doesNotMatch(bonds, /Input label="Expected bond value"/);
+  assert.doesNotMatch(bonds, /Input label="Received date"/);
+  assert.doesNotMatch(bonds, /Input label="Issue date"/);
+  assert.doesNotMatch(bonds, /Input label="Released date"/);
+  assert.match(bonds, /Input label="Effective date" type="date"/);
+  assert.match(bonds, /Input label="Expiry date" type="date"/);
   assert.match(bonds, /<span>PO No\.<\/span>/);
   assert.match(masterApi, /Vendor code is required\./);
   assert.match(migration, /vendors_vendor_code_required/);

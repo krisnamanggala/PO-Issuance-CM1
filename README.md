@@ -52,7 +52,7 @@ PO and bond templates are separate downloads in their registers.
 
 - PO import requires the existing PO contract, including ISO release/ETA dates, allowed groups (`ELE`, `INS`, `ROT`, `PRO`), payment terms, Incoterms, services, valid PB/WB values, and a currency of `IDR`, `USD`, `AUD`, `JPY`, `CNY`, `GBP`, or `EUR`. PB/WB validity remains `DD/MM/YYYY` in the PO form and is normalized for storage.
 - A supplied PO project code must already be in Project master data. Every supplied vendor must match an active Vendor master record, whose vendor code is required. Imports reject duplicate PO/revision keys and do not insert a batch with validation errors.
-- Bond import requires a PO/revision match, an active unique bond identity, ISO dates, one of the allowed currencies above, and a bond number for safe CSV duplicate protection.
+- Bond entry and import use only Effective date and Expiry date. Bond import requires a PO/revision match, an active unique bond identity, ISO dates, one of the allowed currencies above, and a bond number for safe CSV duplicate protection.
 
 The PO operational-status and expected-bond-value controls are no longer entry fields. Their historic database columns are intentionally retained so existing historical records remain readable; new register records use the revised form contract.
 

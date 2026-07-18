@@ -11,11 +11,8 @@ export type BondInput = {
   currencyCode: string;
   bondValue: string | number;
   expectedValue: string | number;
-  receivedDate: string;
-  issueDate: string;
   effectiveDate: string;
   expiryDate: string;
-  releasedDate: string;
   remarks: string;
 };
 
@@ -48,9 +45,6 @@ export function validateBondInput(input: Partial<BondInput>, actor: string) {
   const currencyCode = String(input.currencyCode ?? "IDR").trim().toUpperCase() || "IDR";
   if (!(currencyCodes as readonly string[]).includes(currencyCode)) errors.push("Currency must be IDR, USD, AUD, JPY, CNY, GBP, or EUR.");
   const expiryDate = optionalDate(input.expiryDate, "Expiry date", errors);
-  const releasedDate = optionalDate(input.releasedDate, "Released date", errors);
-  const receivedDate = optionalDate(input.receivedDate, "Received date", errors);
-  const issueDate = optionalDate(input.issueDate, "Issue date", errors);
   const effectiveDate = optionalDate(input.effectiveDate, "Effective date", errors);
   const bondValue = optionalAmount(input.bondValue, "Bond value", errors);
   const expectedValue = optionalAmount(input.expectedValue, "Expected bond value", errors);
@@ -67,11 +61,8 @@ export function validateBondInput(input: Partial<BondInput>, actor: string) {
       currency_code: currencyCode,
       bond_value: bondValue,
       expected_value: expectedValue,
-      received_date: receivedDate,
-      issue_date: issueDate,
       effective_date: effectiveDate,
       expiry_date: expiryDate,
-      released_date: releasedDate,
       remarks,
       created_by: actor,
       updated_by: actor,

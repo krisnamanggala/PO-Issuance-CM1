@@ -2,7 +2,7 @@ import { getWorkspaceActor } from "@/app/lib/access";
 import { validateBondInput } from "@/app/lib/bonds";
 import { createClient } from "@/app/lib/supabase/server";
 
-const headers = ["po_number", "revision_number", "bond_type", "bond_number", "issuing_bank", "currency_code", "bond_value", "received_date", "issue_date", "effective_date", "expiry_date", "released_date", "remarks"] as const;
+const headers = ["po_number", "revision_number", "bond_type", "bond_number", "issuing_bank", "currency_code", "bond_value", "effective_date", "expiry_date", "remarks"] as const;
 
 function parseCsv(text: string) {
   const lines = text.trim().split(/\r?\n/).filter(Boolean);
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       const line = index + 2; const poRevisionId = poMap.get(`${row.po_number.toLowerCase()}::${row.revision_number}`);
       if (!poRevisionId) errors.push(`Row ${line}: PO No. ${row.po_number} revision ${row.revision_number} was not found.`);
       if (!row.bond_number) errors.push(`Row ${line}: Bond number is required for a safe CSV import.`);
-      const input = { poRevisionId: poRevisionId ?? "", bondType: row.bond_type, bondNumber: row.bond_number, issuingBank: row.issuing_bank, currencyCode: row.currency_code || "IDR", bondValue: row.bond_value, expectedValue: "", receivedDate: row.received_date, issueDate: row.issue_date, effectiveDate: row.effective_date, expiryDate: row.expiry_date, releasedDate: row.released_date, remarks: row.remarks };
+      const input = { poRevisionId: poRevisionId ?? "", bondType: row.bond_type, bondNumber: row.bond_number, issuingBank: row.issuing_bank, currencyCode: row.currency_code || "IDR", bondValue: row.bond_value, expectedValue: "", effectiveDate: row.effective_date, expiryDate: row.expiry_date, remarks: row.remarks };
       const result = validateBondInput(input, actor.email); result.errors.forEach((message) => errors.push(`Row ${line}: ${message}`));
       const key = `${poRevisionId ?? "missing"}::${row.bond_type.toUpperCase()}::${row.bond_number.toLowerCase()}`; if (keys.has(key)) errors.push(`Row ${line}: Bond identity is duplicated within this CSV.`); keys.add(key);
       return result.value;
