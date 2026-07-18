@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       }
       const vendor = vendors.get(vendorName.toLowerCase());
       if (!vendor) errors.push(`Row ${index + 2}: Vendor ${vendorName || "(blank)"} is not in master data.`);
-      else if (!vendor.vendor_code?.trim()) errors.push(`Row ${index + 2}: Vendor ${vendorName} needs a vendor code before it can be used.`);
+      else if (!Number.isInteger(vendor.vendor_code) || vendor.vendor_code < 0) errors.push(`Row ${index + 2}: Vendor ${vendorName} needs a valid integer vendor code before it can be used.`);
       else input.vendorId = String(vendor.id);
       const result = validatePOInput(input, actor.email);
       result.errors.forEach((message) => errors.push(`Row ${index + 2}: ${message}`));

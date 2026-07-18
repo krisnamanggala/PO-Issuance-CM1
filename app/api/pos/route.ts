@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const { data: vendor, error: vendorError } = await supabase.from("vendors").select("id, vendor_name, vendor_code").eq("id", vendorId).maybeSingle();
     if (vendorError) throw vendorError;
     if (!vendor) return Response.json({ error: "The selected vendor is no longer available." }, { status: 400 });
-    if (!vendor.vendor_code?.trim()) return Response.json({ error: "The selected vendor needs a vendor code before it can be used." }, { status: 400 });
+    if (!Number.isInteger(vendor.vendor_code) || vendor.vendor_code < 0) return Response.json({ error: "The selected vendor needs a valid integer vendor code before it can be used." }, { status: 400 });
     const { value, errors } = validatePOInput({ ...payload, vendorId: vendor.id, vendorName: vendor.vendor_name }, actor.email);
     if (errors.length) return Response.json({ error: errors.join(" "), errors }, { status: 400 });
 

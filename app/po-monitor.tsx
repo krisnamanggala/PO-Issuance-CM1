@@ -19,7 +19,7 @@ type EditorState = { mode: "create" | "edit" | "revision"; record?: PORecord } |
 type BondFilter = "all" | "required" | "notApplicable";
 type EtaFilter = "all" | "past" | "next30" | "later";
 type SortOrder = "released" | "eta" | "po";
-type MasterData = { projects: { id: number; project_code: string; project_name: string; is_active: boolean }[]; vendors: { id: number; vendor_name: string; vendor_code: string; is_active: boolean }[] };
+type MasterData = { projects: { id: number; project_code: string; project_name: string; is_active: boolean }[]; vendors: { id: number; vendor_name: string; vendor_code: number; is_active: boolean }[] };
 
 const blankForm: POInputFields = {
   poNumber: "", revisionNumber: "0", releasedDate: "", purchasingGroup: "ELE",
