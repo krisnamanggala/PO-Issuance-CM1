@@ -4,6 +4,7 @@ export type WorkspaceActor = {
   id: string;
   email: string;
   displayName: string;
+  role: "admin" | "editor";
 };
 
 export async function getAuthenticatedUser() {
@@ -20,7 +21,7 @@ export async function getWorkspaceActor(): Promise<WorkspaceActor | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("workspace_members")
-    .select("user_id")
+    .select("user_id, role")
     .eq("user_id", user.id)
     .maybeSingle();
   if (error || !data) return null;
@@ -29,5 +30,5 @@ export async function getWorkspaceActor(): Promise<WorkspaceActor | null> {
     typeof user.user_metadata.full_name === "string" && user.user_metadata.full_name.trim()
       ? user.user_metadata.full_name.trim()
       : user.email;
-  return { id: user.id, email: user.email, displayName };
+  return { id: user.id, email: user.email, displayName, role: data.role === "admin" ? "admin" : "editor" };
 }

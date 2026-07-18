@@ -19,7 +19,7 @@ export async function GET() {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("po_revisions")
-      .select()
+      .select("*, projects(project_code, project_name)")
       .order("released_date", { ascending: false })
       .order("revision_number", { ascending: false })
       .order("id", { ascending: false });
@@ -36,14 +36,32 @@ export async function POST(request: Request) {
 
   try {
     const payload = (await request.json()) as Record<string, unknown>;
-    const { value, errors } = validatePOInput(payload, actor.email);
+    const supabase = await createClient();
+    const vendorId = Number(payload.vendorId);
+    if (!Number.isInteger(vendorId) || vendorId < 1) return Response.json({ error: "Choose a vendor from master data." }, { status: 400 });
+    const { data: vendor, error: vendorError } = await supabase.from("vendors").select("id, vendor_name, vendor_code").eq("id", vendorId).maybeSingle();
+    if (vendorError) throw vendorError;
+    if (!vendor) return Response.json({ error: "The selected vendor is no longer available." }, { status: 400 });
+    if (!Number.isInteger(vendor.vendor_code) || vendor.vendor_code < 0) return Response.json({ error: "The selected vendor needs a valid integer vendor code before it can be used." }, { status: 400 });
+    const { value, errors } = validatePOInput({ ...payload, vendorId: vendor.id, vendorName: vendor.vendor_name }, actor.email);
     if (errors.length) return Response.json({ error: errors.join(" "), errors }, { status: 400 });
 
-    const supabase = await createClient();
+    if (value.previousRevisionId) {
+      const { data: previous, error: previousError } = await supabase
+        .from("po_revisions")
+        .select("id, po_number, revision_number")
+        .eq("id", value.previousRevisionId)
+        .maybeSingle();
+      if (previousError) throw previousError;
+      if (!previous || previous.po_number !== value.poNumber || Number(previous.revision_number) >= value.revisionNumber) {
+        return Response.json({ error: "The previous revision must belong to the same PO and have a lower revision number." }, { status: 400 });
+      }
+    }
+
     const { data, error } = await supabase
       .from("po_revisions")
       .insert(toInsertRecord(value))
-      .select()
+      .select("*, projects(project_code, project_name)")
       .single();
     if (error) throw error;
     return Response.json({ record: fromDatabase(data as never) }, { status: 201 });

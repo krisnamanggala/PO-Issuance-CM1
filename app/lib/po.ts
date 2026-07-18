@@ -1,5 +1,6 @@
 export const purchasingGroups = ["ELE", "INS", "ROT", "PRO"] as const;
 export const paymentTerms = ["T/T", "SKBDN"] as const;
+export const currencyCodes = ["IDR", "USD", "AUD", "JPY", "CNY", "GBP", "EUR"] as const;
 export const yesNoValues = ["Yes", "No"] as const;
 export const serviceInclusionValues = ["Included", "Not included"] as const;
 export const incoterms = [
@@ -18,20 +19,28 @@ export const incoterms = [
 
 export type PurchasingGroup = (typeof purchasingGroups)[number];
 export type PaymentTerm = (typeof paymentTerms)[number];
+export type CurrencyCode = (typeof currencyCodes)[number];
 export type Incoterm = (typeof incoterms)[number]["value"];
 export type ServiceInclusion = (typeof serviceInclusionValues)[number];
 
 export type PORecord = {
   id: number;
+  previousRevisionId: number | null;
+  revisionReason: string;
   poNumber: string;
   revisionNumber: number;
   releasedDate: string;
   purchasingGroup: PurchasingGroup;
+  projectId: number | null;
+  projectCode: string | null;
+  projectName: string | null;
+  vendorId: number | null;
   location: string;
   equipmentName: string;
   vendorName: string;
   budget: string;
   contractValue: string;
+  currencyCode: CurrencyCode;
   deliveryLeadTimeWeeks: number;
   incoterm: Incoterm;
   etaRosAtSite: string;
@@ -41,6 +50,10 @@ export type PORecord = {
   pbValidity: string;
   wb: boolean;
   wbValidity: string;
+  deliveryCompletedAt: string | null;
+  cancelledAt: string | null;
+  responsiblePerson: string;
+  revisionReviewRequired: boolean;
   supervisionInstallationAssistIncluded: boolean;
   supervisionInstallationAssistMandays: string | null;
   supervisionInstallationAssistCost: string | null;
@@ -62,15 +75,20 @@ export type ValidatedPOInput = POInput & {
 };
 
 export type POInputFields = {
+  previousRevisionId: string | number;
+  revisionReason: string;
   poNumber: string;
   revisionNumber: string | number;
   releasedDate: string;
   purchasingGroup: string;
+  projectId: string | number;
+  vendorId: string | number;
   location: string;
   equipmentName: string;
   vendorName: string;
   budget: string | number;
   contractValue: string | number;
+  currencyCode: string;
   deliveryLeadTimeWeeks: string | number;
   incoterm: string;
   etaRosAtSite: string;
@@ -80,6 +98,10 @@ export type POInputFields = {
   pbValidity: string;
   wb: string | boolean;
   wbValidity: string;
+  deliveryCompletedAt: string;
+  cancelledAt: string;
+  responsiblePerson: string;
+  revisionReviewRequired: string | boolean;
   supervisionInstallationAssistIncluded: string | boolean;
   supervisionInstallationAssistMandays: string | number;
   supervisionInstallationAssistCost: string | number;
@@ -96,11 +118,13 @@ export const csvHeaders = [
   "revision_number",
   "released_date",
   "purchasing_group",
+  "project_code",
   "location",
   "equipment_name",
   "vendor_name",
   "budget_idr",
   "contract_value_idr",
+  "currency_code",
   "delivery_lead_time_weeks",
   "incoterm",
   "eta_ros_at_site",
@@ -120,6 +144,12 @@ export const csvHeaders = [
   "training_mandays",
   "training_cost_idr",
 ] as const;
+
+// Project code remains optional for legacy PO records. Operational-status fields
+// are retained in the database for historical reporting but are no longer imported.
+export const requiredCsvHeaders = csvHeaders.filter((header) => ![
+  "project_code",
+].includes(header));
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const dmyDatePattern = /^(\d{2})\/(\d{2})\/(\d{4})$/;
@@ -177,6 +207,29 @@ function canonicalIncoterm(value: string): Incoterm | null {
   const normalized = value.toUpperCase();
   const match = incoterms.find((term) => term.value === normalized);
   return match?.value ?? null;
+}
+
+function optionalIsoDate(value: unknown, label: string, errors: string[]) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (!isRealIsoDate(raw)) errors.push(`${label} must use YYYY-MM-DD.`);
+  return raw || null;
+}
+
+function optionalId(value: unknown, label: string, errors: string[]) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (!integerPattern.test(raw) || Number(raw) < 1) {
+    errors.push(`${label} must be a valid record identifier.`);
+    return null;
+  }
+  return Number(raw);
+}
+
+function requiredId(value: unknown, label: string, errors: string[]) {
+  const id = optionalId(value, label, errors);
+  if (id === null) errors.push(`${label} is required.`);
+  return id;
 }
 
 function serviceIncluded(value: unknown, label: string, errors: string[]) {
@@ -238,6 +291,8 @@ export function validatePOInput(
   actor: string,
 ): { value: ValidatedPOInput; errors: string[] } {
   const errors: string[] = [];
+  const previousRevisionId = optionalId(source.previousRevisionId, "Previous revision", errors);
+  const revisionReason = String(source.revisionReason ?? "").trim();
   const poNumber = requiredString(source.poNumber, "PO No.", errors);
   const revisionRaw = requiredString(source.revisionNumber, "Revision number", errors);
   const releasedDate = requiredString(source.releasedDate, "Released date", errors);
@@ -246,6 +301,8 @@ export function validatePOInput(
     "Purchasing group",
     errors,
   );
+  const projectId = optionalId(source.projectId, "Project", errors);
+  const vendorId = requiredId(source.vendorId, "Vendor", errors);
   const location = requiredString(source.location, "Incoterm location", errors);
   const equipmentName = requiredString(source.equipmentName, "Equipment name", errors);
   const vendorName = requiredString(source.vendorName, "Vendor name", errors);
@@ -260,6 +317,10 @@ export function validatePOInput(
   const etaRosAtSite = requiredString(source.etaRosAtSite, "ETA ROS at site", errors);
   const paymentRaw = requiredString(source.termOfPayment, "Term of payment", errors);
   const milestoneDetails = String(source.milestoneDetails ?? "").trim();
+  const currencyCode = String(source.currencyCode ?? "IDR").trim().toUpperCase() || "IDR";
+  const deliveryCompletedAt = optionalIsoDate(source.deliveryCompletedAt, "Completed date", errors);
+  const cancelledAt = optionalIsoDate(source.cancelledAt, "Cancelled date", errors);
+  const responsiblePerson = String(source.responsiblePerson ?? "").trim();
 
   if (!integerPattern.test(revisionRaw)) {
     errors.push("Revision number must be a whole number of 0 or more.");
@@ -279,11 +340,20 @@ export function validatePOInput(
   if (!moneyPattern.test(contractValue)) {
     errors.push("Contract value must be a non-negative IDR amount with up to two decimals.");
   }
+  if (!(currencyCodes as readonly string[]).includes(currencyCode)) {
+    errors.push("Currency must be IDR, USD, AUD, JPY, CNY, GBP, or EUR.");
+  }
   if (milestoneDetails.length > 2000) {
     errors.push("Milestone details must be 2,000 characters or fewer.");
   }
   if (location.length > 250) {
     errors.push("Incoterm location must be 250 characters or fewer.");
+  }
+  if (previousRevisionId && !revisionReason) {
+    errors.push("Revision reason is required when creating a new revision.");
+  }
+  if (revisionReason.length > 1000) {
+    errors.push("Revision reason must be 1,000 characters or fewer.");
   }
 
   const purchasingGroup = canonicalGroup(purchasingGroupRaw);
@@ -305,6 +375,8 @@ export function validatePOInput(
   if (wb && (!wbValidityRaw || wbValidityRaw.toUpperCase() === "N/A")) {
     errors.push("Warranty Bond validity is required when WB is Yes.");
   }
+  const revisionReviewRequired = source.revisionReviewRequired === true
+    || String(source.revisionReviewRequired ?? "No").trim().toLowerCase() === "yes";
 
   const supervisionInstallationAssist = validateService(source, {
     label: "Supervision & installation assist",
@@ -328,15 +400,22 @@ export function validatePOInput(
   return {
     errors,
     value: {
+      previousRevisionId,
+      revisionReason,
       poNumber,
       revisionNumber: Number.parseInt(revisionRaw || "0", 10),
       releasedDate,
       purchasingGroup: purchasingGroup ?? "ELE",
+      projectId,
+      projectCode: null,
+      projectName: null,
+      vendorId,
       location,
       equipmentName,
       vendorName,
       budget: canonicalMoney(budget),
       contractValue: canonicalMoney(contractValue),
+      currencyCode: (currencyCodes as readonly string[]).includes(currencyCode) ? currencyCode as CurrencyCode : "IDR",
       deliveryLeadTimeWeeks: Number.parseInt(leadTimeRaw || "0", 10),
       incoterm: incoterm ?? "EXW",
       etaRosAtSite,
@@ -346,6 +425,10 @@ export function validatePOInput(
       pbValidity,
       wb,
       wbValidity,
+      deliveryCompletedAt,
+      cancelledAt,
+      responsiblePerson,
+      revisionReviewRequired,
       supervisionInstallationAssistIncluded: supervisionInstallationAssist.included,
       supervisionInstallationAssistMandays: supervisionInstallationAssist.mandays,
       supervisionInstallationAssistCost: supervisionInstallationAssist.cost,
@@ -415,7 +498,7 @@ export function parseCsv(text: string): CsvParseResult {
   if (!headerRow) return { headers: [], rows: [], errors: ["CSV is empty."] };
 
   const headers = headerRow.map((header) => header.trim().replace(/^\uFEFF/, ""));
-  const missing = csvHeaders.filter((header) => !headers.includes(header));
+  const missing = requiredCsvHeaders.filter((header) => !headers.includes(header));
   if (missing.length) {
     return { headers, rows: [], errors: [`Missing required columns: ${missing.join(", ")}.`] };
   }
@@ -432,15 +515,20 @@ export function parseCsv(text: string): CsvParseResult {
 
 export function csvRowToInput(row: Record<string, string>): POInputFields {
   return {
+    previousRevisionId: "",
+    revisionReason: "",
     poNumber: row.po_number,
     revisionNumber: row.revision_number,
     releasedDate: row.released_date,
     purchasingGroup: row.purchasing_group,
+    projectId: "",
+    vendorId: "",
     location: row.location,
     equipmentName: row.equipment_name,
     vendorName: row.vendor_name,
     budget: row.budget_idr,
     contractValue: row.contract_value_idr,
+    currencyCode: row.currency_code || "IDR",
     deliveryLeadTimeWeeks: row.delivery_lead_time_weeks,
     incoterm: row.incoterm,
     etaRosAtSite: row.eta_ros_at_site,
@@ -450,6 +538,10 @@ export function csvRowToInput(row: Record<string, string>): POInputFields {
     pbValidity: row.pb_validity,
     wb: row.wb,
     wbValidity: row.wb_validity,
+    deliveryCompletedAt: "",
+    cancelledAt: "",
+    responsiblePerson: "",
+    revisionReviewRequired: "No",
     supervisionInstallationAssistIncluded: row.supervision_installation_assist_included,
     supervisionInstallationAssistMandays: row.supervision_installation_assist_mandays,
     supervisionInstallationAssistCost: row.supervision_installation_assist_cost_idr,
