@@ -3,5 +3,11 @@ import { getSupabaseEnv } from "./env";
 
 export function createClient() {
   const { url, publishableKey } = getSupabaseEnv();
-  return createBrowserClient(url, publishableKey);
+  return createBrowserClient(url, publishableKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  });
 }

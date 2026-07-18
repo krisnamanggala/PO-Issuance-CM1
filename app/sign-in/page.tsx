@@ -14,8 +14,8 @@ export default async function SignInPage({
       <section className="auth-card">
         <p className="eyebrow">SCM Category Management 1</p>
         <h1>TPEC CM1 PO Monitoring</h1>
-        <p>Sign in with an approved workspace email to open the PO register.</p>
-        {params.error && <p className="auth-error">That sign-in link has expired or is invalid. Request a new one.</p>}
+        <p>Use your Tripatra work email and password to open the PO register.</p>
+        {params.error && <p className="auth-error">That email-verification link has expired or is invalid. Register again to receive a new one.</p>}
         <SignInForm next={next} />
       </section>
     </main>

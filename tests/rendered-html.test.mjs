@@ -19,6 +19,8 @@ test("defines the durable PO revision contract and CSV safeguards", async () => 
   assert.match(schema, /pb_validity date/);
   assert.match(schema, /wb_validity date/);
   assert.match(schema, /workspace_members/);
+  assert.match(schema, /@tripatra/);
+  assert.match(schema, /enroll_tripatra_workspace_member/);
   assert.match(schema, /enable row level security/);
   assert.match(validation, /Missing required columns/);
   assert.match(validation, /must be Yes or No/);
@@ -29,11 +31,12 @@ test("defines the durable PO revision contract and CSV safeguards", async () => 
 });
 
 test("ships the PO issuance monitoring surface without the starter skeleton", async () => {
-  const [page, monitor, api, access] = await Promise.all([
+  const [page, monitor, api, access, signIn] = await Promise.all([
     source("app/page.tsx"),
     source("app/po-monitor.tsx"),
     source("app/api/pos/import/route.ts"),
     source("app/lib/access.ts"),
+    source("app/sign-in/sign-in-form.tsx"),
   ]);
 
   assert.match(page, /getWorkspaceActor/);
@@ -45,5 +48,8 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(monitor, /New revision/);
   assert.match(api, /No records were imported/);
   assert.match(access, /workspace_members/);
+  assert.match(signIn, /signInWithPassword/);
+  assert.match(signIn, /signUp/);
+  assert.match(signIn, /tripatra\.com/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
 });

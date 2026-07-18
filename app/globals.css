@@ -58,7 +58,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .auth-card h1 { margin: 0; color: #262161; font-size: 30px; letter-spacing: -.04em; }
 .auth-card > p:not(.eyebrow) { margin: 13px 0 0; color: #635a50; line-height: 1.55; }
 .auth-card > a { display: inline-block; margin-top: 22px; color: #5e9620; font-weight: 750; }
-.auth-form { margin-top: 25px; display: grid; gap: 8px; }
+.auth-tabs { margin-top: 25px; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid #d7cab2; border-radius: 8px; background: #f6f0e4; }
+.auth-tabs button { min-height: 34px; border: 0; border-radius: 5px; color: #756f65; background: transparent; font-size: 12px; font-weight: 750; }
+.auth-tabs button.selected { color: #262161; background: #fffdf8; box-shadow: 0 1px 3px rgba(38,33,97,.14); }
+.auth-form { margin-top: 18px; display: grid; gap: 8px; }
 .auth-form label { color: #544a3e; font-size: 12px; font-weight: 750; }
 .auth-form input { min-height: 42px; padding: 0 11px; border: 1px solid #d4c7b1; border-radius: 7px; color: #352a21; background: #fff; }
 .auth-form button { min-height: 42px; margin-top: 6px; border: 0; border-radius: 7px; color: #fff; background: #7fbd35; font-weight: 750; }
