@@ -36,10 +36,8 @@ export async function POST(request: Request) {
       const vendorName = String(body.vendorName ?? "").trim(); const vendorCodeRaw = String(body.vendorCode ?? "").trim();
       if (!vendorName) return Response.json({ error: "Vendor name is required." }, { status: 400 });
       if (!vendorCodeRaw) return Response.json({ error: "Vendor code is required." }, { status: 400 });
-      if (!/^\d+$/.test(vendorCodeRaw)) return Response.json({ error: "Vendor code must be a whole number." }, { status: 400 });
-      const vendorCode = Number(vendorCodeRaw);
-      if (!Number.isInteger(vendorCode) || vendorCode < 0 || vendorCode > 2_147_483_647) return Response.json({ error: "Vendor code must be an integer from 0 to 2147483647." }, { status: 400 });
-      const { data, error } = await supabase.from("vendors").insert({ vendor_name: vendorName, vendor_code: vendorCode, created_by: actor.email, updated_by: actor.email }).select().single(); if (error) throw error; return Response.json({ record: data }, { status: 201 });
+      if (vendorCodeRaw.length > 100) return Response.json({ error: "Vendor code must be 100 characters or fewer." }, { status: 400 });
+      const { data, error } = await supabase.from("vendors").insert({ vendor_name: vendorName, vendor_code: vendorCodeRaw, created_by: actor.email, updated_by: actor.email }).select().single(); if (error) throw error; return Response.json({ record: data }, { status: 201 });
     }
     return Response.json({ error: "Unsupported master-data item." }, { status: 400 });
   } catch (error) {
