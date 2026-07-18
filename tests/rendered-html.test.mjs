@@ -120,7 +120,7 @@ test("adds normalized execution, cash, service, revision, and management-action 
 });
 
 test("enforces the revised vendor and currency contract without removing historical values", async () => {
-  const [po, monitor, bonds, master, masterApi, migration, vendorMigration, styles] = await Promise.all([
+  const [po, monitor, bonds, master, masterApi, migration, vendorMigration, vendorTextMigration, styles] = await Promise.all([
     source("app/lib/po.ts"),
     source("app/po-monitor.tsx"),
     source("app/bond-register.tsx"),
@@ -128,6 +128,7 @@ test("enforces the revised vendor and currency contract without removing histori
     source("app/api/master-data/route.ts"),
     source("supabase/migrations/20260718170000_enforce_vendor_code_and_currency_options.sql"),
     source("supabase/migrations/20260718180000_make_vendor_code_integer.sql"),
+    source("supabase/migrations/20260719100000_make_vendor_code_text.sql"),
     source("app/globals.css"),
   ]);
 
@@ -143,13 +144,15 @@ test("enforces the revised vendor and currency contract without removing histori
   assert.match(bonds, /Input label="Expiry date" type="date"/);
   assert.match(bonds, /<span>PO No\.<\/span>/);
   assert.match(masterApi, /Vendor code is required\./);
-  assert.match(masterApi, /Vendor code must be a whole number\./);
-  assert.match(master, /type="number" min="0" max="2147483647" step="1"/);
-  assert.match(master, /placeholder="Vendor code" required \/><input value=\{name\}/);
+  assert.match(masterApi, /Vendor code must be 100 characters or fewer\./);
+  assert.match(master, /type="text" maxLength=\{100\}/);
+  assert.match(master, /mandatory text and may contain letters, numbers, or leading zeroes/);
   assert.match(migration, /vendors_vendor_code_required/);
   assert.match(migration, /po_revisions_currency_code_allowed/);
   assert.match(migration, /bonds_currency_code_allowed/);
   assert.match(vendorMigration, /alter column vendor_code type integer/);
   assert.match(vendorMigration, /alter column vendor_code set not null/);
+  assert.match(vendorTextMigration, /alter column vendor_code type text using vendor_code::text/);
+  assert.match(vendorTextMigration, /btrim\(vendor_code\) <> ''/);
   assert.match(styles, /\.master-panel \.panel-heading \{ border-bottom: 0; \}/);
 });

@@ -36,7 +36,7 @@ export async function PUT(request: Request, context: RouteContext) {
     const { data: vendor, error: vendorError } = await supabase.from("vendors").select("id, vendor_name, vendor_code").eq("id", vendorId).maybeSingle();
     if (vendorError) throw vendorError;
     if (!vendor) return Response.json({ error: "The selected vendor is no longer available." }, { status: 400 });
-    if (!Number.isInteger(vendor.vendor_code) || vendor.vendor_code < 0) return Response.json({ error: "The selected vendor needs a valid integer vendor code before it can be used." }, { status: 400 });
+    if (typeof vendor.vendor_code !== "string" || !vendor.vendor_code.trim()) return Response.json({ error: "The selected vendor needs a valid vendor code before it can be used." }, { status: 400 });
     const { value, errors } = validatePOInput({
       ...payload,
       previousRevisionId: existing.previous_revision_id ?? "",
