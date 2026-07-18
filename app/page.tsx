@@ -1,19 +1,10 @@
-import { getAuthenticatedUser, getWorkspaceActor } from "./lib/access";
-import POMonitor from "./po-monitor";
-import { redirect } from "next/navigation";
+import DashboardOverview from "./dashboard-overview";
+import { WorkspaceShell } from "./components/workspace-shell";
+import { requireWorkspace } from "./lib/page-access";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const user = await getAuthenticatedUser();
-  if (!user) redirect("/sign-in?next=/");
-
-  const actor = await getWorkspaceActor();
-  if (!actor) redirect("/unauthorized");
-
-  return (
-    <POMonitor
-      user={{ displayName: actor.displayName, email: actor.email }}
-    />
-  );
+  const actor = await requireWorkspace("/");
+  return <WorkspaceShell active="overview" user={actor}><DashboardOverview /></WorkspaceShell>;
 }

@@ -45,7 +45,7 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
     source("app/sign-in/sign-in-form.tsx"),
   ]);
 
-  assert.match(page, /getWorkspaceActor/);
+  assert.match(page, /requireWorkspace/);
   assert.match(monitor, /TPEC CM1 PO Monitoring/);
   assert.match(monitor, /Payment-term milestones/);
   assert.match(monitor, /Supervision & installation assist/);
@@ -61,4 +61,26 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(signIn, /signUp/);
   assert.match(signIn, /tripatra\.com/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
+});
+
+test("adds calculated procurement dashboard, bond history, and protected master data", async () => {
+  const [dashboard, status, migration, masterApi, alertsApi] = await Promise.all([
+    source("app/dashboard-overview.tsx"),
+    source("app/lib/status.ts"),
+    source("supabase/migrations/20260718154000_add_procurement_dashboard_data.sql"),
+    source("app/api/master-data/route.ts"),
+    source("app/api/alerts/route.ts"),
+  ]);
+
+  assert.match(dashboard, /Critical Actions/);
+  assert.match(dashboard, /Active POs/);
+  assert.match(dashboard, /currency/);
+  assert.match(status, /deliveryStatus/);
+  assert.match(status, /bondStatus/);
+  assert.match(migration, /create table if not exists public\.bonds/);
+  assert.match(migration, /create table if not exists public\.bond_history/);
+  assert.match(migration, /create table if not exists public\.alert_history/);
+  assert.match(migration, /is_workspace_admin/);
+  assert.match(masterApi, /Only workspace administrators/);
+  assert.match(alertsApi, /alert_history/);
 });

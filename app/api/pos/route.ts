@@ -19,7 +19,7 @@ export async function GET() {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("po_revisions")
-      .select()
+      .select("*, projects(project_code, project_name)")
       .order("released_date", { ascending: false })
       .order("revision_number", { ascending: false })
       .order("id", { ascending: false });
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("po_revisions")
       .insert(toInsertRecord(value))
-      .select()
+      .select("*, projects(project_code, project_name)")
       .single();
     if (error) throw error;
     return Response.json({ record: fromDatabase(data as never) }, { status: 201 });

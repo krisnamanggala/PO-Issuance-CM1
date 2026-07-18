@@ -47,7 +47,7 @@ export async function PUT(request: Request, context: RouteContext) {
       .from("po_revisions")
       .update(toUpdateRecord(value))
       .eq("id", id)
-      .select()
+      .select("*, projects(project_code, project_name)")
       .single();
     if (error) throw error;
     return Response.json({ record: fromDatabase(data as never) });

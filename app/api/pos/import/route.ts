@@ -25,9 +25,30 @@ export async function POST(request: Request) {
       return Response.json({ error: "CSV has no PO rows to import." }, { status: 400 });
     }
 
+    const supabase = await createClient();
+    const [projectsResult, vendorsResult] = await Promise.all([
+      supabase.from("projects").select("id, project_code"),
+      supabase.from("vendors").select("id, vendor_name"),
+    ]);
+    if (projectsResult.error || vendorsResult.error) throw projectsResult.error ?? vendorsResult.error;
+    const projects = new Map((projectsResult.data ?? []).map((project) => [project.project_code.toLowerCase(), project]));
+    const vendors = new Map((vendorsResult.data ?? []).map((vendor) => [vendor.vendor_name.toLowerCase(), vendor]));
     const errors: string[] = [];
     const entries = parsed.rows.map((row, index) => {
-      const result = validatePOInput(csvRowToInput(row), actor.email);
+      const input = csvRowToInput(row);
+      const projectCode = row.project_code?.trim();
+      const vendorName = row.vendor_name?.trim();
+      if (projectCode) {
+        const project = projects.get(projectCode.toLowerCase());
+        if (!project) errors.push(`Row ${index + 2}: Project code ${projectCode} is not in master data.`);
+        else input.projectId = String(project.id);
+      }
+      if (vendors.size && vendorName) {
+        const vendor = vendors.get(vendorName.toLowerCase());
+        if (!vendor) errors.push(`Row ${index + 2}: Vendor ${vendorName} is not in master data.`);
+        else input.vendorId = String(vendor.id);
+      }
+      const result = validatePOInput(input, actor.email);
       result.errors.forEach((message) => errors.push(`Row ${index + 2}: ${message}`));
       return result.value;
     });
@@ -41,7 +62,6 @@ export async function POST(request: Request) {
       return Response.json({ error: "Fix the CSV errors before importing.", errors }, { status: 400 });
     }
 
-    const supabase = await createClient();
     const { data: existing, error: existingError } = await supabase
       .from("po_revisions")
       .select("po_number, revision_number");
