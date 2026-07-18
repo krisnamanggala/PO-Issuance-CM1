@@ -16,8 +16,12 @@ test("defines the durable PO revision contract and CSV safeguards", async () => 
 
   assert.match(schema, /po_revisions_po_revision_unique/);
   assert.match(schema, /delivery_lead_time_weeks/);
+  assert.match(schema, /'ELE', 'INS', 'ROT', 'PRO'/);
   assert.match(schema, /pb_validity date/);
   assert.match(schema, /wb_validity date/);
+  assert.match(schema, /supervision_installation_assist_included/);
+  assert.match(schema, /precomm_commissioning_assist_included/);
+  assert.match(schema, /training_included/);
   assert.match(schema, /workspace_members/);
   assert.match(schema, /@tripatra/);
   assert.match(schema, /enroll_tripatra_workspace_member/);
@@ -28,6 +32,8 @@ test("defines the durable PO revision contract and CSV safeguards", async () => 
   assert.match(validation, /Warranty Bond validity is required/);
   assert.match(validation, /DD\/MM\/YYYY/);
   assert.match(validation, /incoterms/);
+  assert.match(validation, /serviceInclusionValues/);
+  assert.match(validation, /Included or Not included/);
 });
 
 test("ships the PO issuance monitoring surface without the starter skeleton", async () => {
@@ -42,6 +48,9 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(page, /getWorkspaceActor/);
   assert.match(monitor, /TPEC CM1 PO Monitoring/);
   assert.match(monitor, /Payment-term milestones/);
+  assert.match(monitor, /Supervision & installation assist/);
+  assert.match(monitor, /Precomm\/commissioning assist/);
+  assert.match(monitor, /Cost \(IDR\)/);
   assert.match(monitor, /Incoterm location/);
   assert.match(monitor, /Current revisions/);
   assert.match(monitor, /Import CSV/);

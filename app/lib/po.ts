@@ -1,6 +1,7 @@
-export const purchasingGroups = ["ELE", "INS", "ROT"] as const;
+export const purchasingGroups = ["ELE", "INS", "ROT", "PRO"] as const;
 export const paymentTerms = ["T/T", "SKBDN"] as const;
 export const yesNoValues = ["Yes", "No"] as const;
+export const serviceInclusionValues = ["Included", "Not included"] as const;
 export const incoterms = [
   { value: "EXW", label: "EXW – Ex Works" },
   { value: "FCA", label: "FCA – Free Carrier" },
@@ -18,6 +19,7 @@ export const incoterms = [
 export type PurchasingGroup = (typeof purchasingGroups)[number];
 export type PaymentTerm = (typeof paymentTerms)[number];
 export type Incoterm = (typeof incoterms)[number]["value"];
+export type ServiceInclusion = (typeof serviceInclusionValues)[number];
 
 export type PORecord = {
   id: number;
@@ -39,6 +41,15 @@ export type PORecord = {
   pbValidity: string;
   wb: boolean;
   wbValidity: string;
+  supervisionInstallationAssistIncluded: boolean;
+  supervisionInstallationAssistMandays: string | null;
+  supervisionInstallationAssistCost: string | null;
+  precommCommissioningAssistIncluded: boolean;
+  precommCommissioningAssistMandays: string | null;
+  precommCommissioningAssistCost: string | null;
+  trainingIncluded: boolean;
+  trainingMandays: string | null;
+  trainingCost: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -69,6 +80,15 @@ export type POInputFields = {
   pbValidity: string;
   wb: string | boolean;
   wbValidity: string;
+  supervisionInstallationAssistIncluded: string | boolean;
+  supervisionInstallationAssistMandays: string | number;
+  supervisionInstallationAssistCost: string | number;
+  precommCommissioningAssistIncluded: string | boolean;
+  precommCommissioningAssistMandays: string | number;
+  precommCommissioningAssistCost: string | number;
+  trainingIncluded: string | boolean;
+  trainingMandays: string | number;
+  trainingCost: string | number;
 };
 
 export const csvHeaders = [
@@ -90,6 +110,15 @@ export const csvHeaders = [
   "pb_validity",
   "wb",
   "wb_validity",
+  "supervision_installation_assist_included",
+  "supervision_installation_assist_mandays",
+  "supervision_installation_assist_cost_idr",
+  "precomm_commissioning_assist_included",
+  "precomm_commissioning_assist_mandays",
+  "precomm_commissioning_assist_cost_idr",
+  "training_included",
+  "training_mandays",
+  "training_cost_idr",
 ] as const;
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -150,6 +179,60 @@ function canonicalIncoterm(value: string): Incoterm | null {
   return match?.value ?? null;
 }
 
+function serviceIncluded(value: unknown, label: string, errors: string[]) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (value === true || normalized === "included") return true;
+  if (value === false || normalized === "not included") return false;
+  errors.push(`${label} must be Included or Not included.`);
+  return false;
+}
+
+function isNotApplicable(value: string) {
+  return !value || value.toUpperCase() === "N/A";
+}
+
+function validateService(
+  source: Partial<POInputFields>,
+  config: {
+    label: string;
+    included: keyof POInputFields;
+    mandays: keyof POInputFields;
+    cost: keyof POInputFields;
+  },
+  errors: string[],
+) {
+  const included = serviceIncluded(source[config.included], config.label, errors);
+  const mandaysRaw = String(source[config.mandays] ?? "").trim();
+  const costRaw = String(source[config.cost] ?? "").trim();
+
+  if (!included) {
+    if (!isNotApplicable(mandaysRaw)) {
+      errors.push(`${config.label} man-days must be blank or N/A when the service is Not included.`);
+    }
+    if (!isNotApplicable(costRaw)) {
+      errors.push(`${config.label} cost must be blank or N/A when the service is Not included.`);
+    }
+    return { included, mandays: null, cost: null };
+  }
+
+  if (!mandaysRaw) {
+    errors.push(`${config.label} man-days is required when the service is Included.`);
+  } else if (!moneyPattern.test(mandaysRaw)) {
+    errors.push(`${config.label} man-days must be a non-negative number with up to two decimals.`);
+  }
+  if (!costRaw) {
+    errors.push(`${config.label} cost is required when the service is Included.`);
+  } else if (!moneyPattern.test(costRaw)) {
+    errors.push(`${config.label} cost must be a non-negative IDR amount with up to two decimals.`);
+  }
+
+  return {
+    included,
+    mandays: moneyPattern.test(mandaysRaw) ? canonicalMoney(mandaysRaw) : mandaysRaw,
+    cost: moneyPattern.test(costRaw) ? canonicalMoney(costRaw) : costRaw,
+  };
+}
+
 export function validatePOInput(
   source: Partial<POInputFields>,
   actor: string,
@@ -204,7 +287,7 @@ export function validatePOInput(
   }
 
   const purchasingGroup = canonicalGroup(purchasingGroupRaw);
-  if (!purchasingGroup) errors.push("Purchasing group must be ELE, INS, or ROT.");
+  if (!purchasingGroup) errors.push("Purchasing group must be ELE, INS, ROT, or PRO.");
   const termOfPayment = canonicalPayment(paymentRaw);
   if (!termOfPayment) errors.push("Term of payment must be T/T or SKBDN.");
   const incoterm = canonicalIncoterm(incotermRaw);
@@ -222,6 +305,25 @@ export function validatePOInput(
   if (wb && (!wbValidityRaw || wbValidityRaw.toUpperCase() === "N/A")) {
     errors.push("Warranty Bond validity is required when WB is Yes.");
   }
+
+  const supervisionInstallationAssist = validateService(source, {
+    label: "Supervision & installation assist",
+    included: "supervisionInstallationAssistIncluded",
+    mandays: "supervisionInstallationAssistMandays",
+    cost: "supervisionInstallationAssistCost",
+  }, errors);
+  const precommCommissioningAssist = validateService(source, {
+    label: "Precomm/commissioning assist",
+    included: "precommCommissioningAssistIncluded",
+    mandays: "precommCommissioningAssistMandays",
+    cost: "precommCommissioningAssistCost",
+  }, errors);
+  const training = validateService(source, {
+    label: "Training",
+    included: "trainingIncluded",
+    mandays: "trainingMandays",
+    cost: "trainingCost",
+  }, errors);
 
   return {
     errors,
@@ -244,6 +346,15 @@ export function validatePOInput(
       pbValidity,
       wb,
       wbValidity,
+      supervisionInstallationAssistIncluded: supervisionInstallationAssist.included,
+      supervisionInstallationAssistMandays: supervisionInstallationAssist.mandays,
+      supervisionInstallationAssistCost: supervisionInstallationAssist.cost,
+      precommCommissioningAssistIncluded: precommCommissioningAssist.included,
+      precommCommissioningAssistMandays: precommCommissioningAssist.mandays,
+      precommCommissioningAssistCost: precommCommissioningAssist.cost,
+      trainingIncluded: training.included,
+      trainingMandays: training.mandays,
+      trainingCost: training.cost,
       createdBy: actor,
       updatedBy: actor,
     },
@@ -339,5 +450,14 @@ export function csvRowToInput(row: Record<string, string>): POInputFields {
     pbValidity: row.pb_validity,
     wb: row.wb,
     wbValidity: row.wb_validity,
+    supervisionInstallationAssistIncluded: row.supervision_installation_assist_included,
+    supervisionInstallationAssistMandays: row.supervision_installation_assist_mandays,
+    supervisionInstallationAssistCost: row.supervision_installation_assist_cost_idr,
+    precommCommissioningAssistIncluded: row.precomm_commissioning_assist_included,
+    precommCommissioningAssistMandays: row.precomm_commissioning_assist_mandays,
+    precommCommissioningAssistCost: row.precomm_commissioning_assist_cost_idr,
+    trainingIncluded: row.training_included,
+    trainingMandays: row.training_mandays,
+    trainingCost: row.training_cost_idr,
   };
 }

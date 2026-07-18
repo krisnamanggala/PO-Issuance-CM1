@@ -4,7 +4,7 @@ Vercel-ready Next.js application backed by Supabase Auth and Postgres.
 
 ## Required configuration
 
-1. Create or select a Supabase project and run `supabase/migrations/20260718000000_create_po_monitoring.sql` through the Supabase SQL editor or migration workflow.
+1. Create or select a Supabase project and run the migrations in timestamp order. If the PO Monitoring tables already exist, apply only `supabase/migrations/20260718135000_add_po_services.sql`; do not rerun the original create migration.
 2. In Supabase Auth, enable Email and password authentication, keep **Confirm email** enabled, and set the production redirect URL to `https://<your-domain>/auth/callback`.
 3. The migration automatically permits and enrolls only `@tripatra.com` accounts. Workspace data remains protected by RLS; no manual membership insert is required.
 4. In **Authentication → Sessions**, set **Time-box user sessions** to **90 days** (this setting requires a Supabase Pro plan or above). Keep the JWT lifetime at its secure default of one hour. The app refreshes that short-lived token while the three-month session is active.

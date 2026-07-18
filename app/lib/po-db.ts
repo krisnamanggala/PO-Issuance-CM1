@@ -20,12 +20,25 @@ type DatabasePORevision = {
   pb_validity: string | null;
   wb: boolean;
   wb_validity: string | null;
+  supervision_installation_assist_included: boolean;
+  supervision_installation_assist_mandays: string | number | null;
+  supervision_installation_assist_cost: string | number | null;
+  precomm_commissioning_assist_included: boolean;
+  precomm_commissioning_assist_mandays: string | number | null;
+  precomm_commissioning_assist_cost: string | number | null;
+  training_included: boolean;
+  training_mandays: string | number | null;
+  training_cost: string | number | null;
   created_at: string;
   updated_at: string;
 };
 
 function isoDate(value: string | null) {
   return value ? value.slice(0, 10) : "N/A";
+}
+
+function decimal(value: string | number | null | undefined) {
+  return value === null || value === undefined ? null : String(value);
 }
 
 export function fromDatabase(record: DatabasePORevision): PORecord {
@@ -49,6 +62,15 @@ export function fromDatabase(record: DatabasePORevision): PORecord {
     pbValidity: isoDate(record.pb_validity),
     wb: Boolean(record.wb),
     wbValidity: isoDate(record.wb_validity),
+    supervisionInstallationAssistIncluded: Boolean(record.supervision_installation_assist_included),
+    supervisionInstallationAssistMandays: decimal(record.supervision_installation_assist_mandays),
+    supervisionInstallationAssistCost: decimal(record.supervision_installation_assist_cost),
+    precommCommissioningAssistIncluded: Boolean(record.precomm_commissioning_assist_included),
+    precommCommissioningAssistMandays: decimal(record.precomm_commissioning_assist_mandays),
+    precommCommissioningAssistCost: decimal(record.precomm_commissioning_assist_cost),
+    trainingIncluded: Boolean(record.training_included),
+    trainingMandays: decimal(record.training_mandays),
+    trainingCost: decimal(record.training_cost),
     createdAt: record.created_at,
     updatedAt: record.updated_at,
   };
@@ -74,6 +96,23 @@ export function toInsertRecord(value: ValidatedPOInput) {
     pb_validity: value.pb ? value.pbValidity : null,
     wb: value.wb,
     wb_validity: value.wb ? value.wbValidity : null,
+    supervision_installation_assist_included: value.supervisionInstallationAssistIncluded,
+    supervision_installation_assist_mandays: value.supervisionInstallationAssistIncluded
+      ? value.supervisionInstallationAssistMandays
+      : null,
+    supervision_installation_assist_cost: value.supervisionInstallationAssistIncluded
+      ? value.supervisionInstallationAssistCost
+      : null,
+    precomm_commissioning_assist_included: value.precommCommissioningAssistIncluded,
+    precomm_commissioning_assist_mandays: value.precommCommissioningAssistIncluded
+      ? value.precommCommissioningAssistMandays
+      : null,
+    precomm_commissioning_assist_cost: value.precommCommissioningAssistIncluded
+      ? value.precommCommissioningAssistCost
+      : null,
+    training_included: value.trainingIncluded,
+    training_mandays: value.trainingIncluded ? value.trainingMandays : null,
+    training_cost: value.trainingIncluded ? value.trainingCost : null,
     created_by: value.createdBy,
     updated_by: value.updatedBy,
   };
@@ -100,6 +139,15 @@ export function toUpdateRecord(value: ValidatedPOInput) {
     pb_validity: record.pb_validity,
     wb: record.wb,
     wb_validity: record.wb_validity,
+    supervision_installation_assist_included: record.supervision_installation_assist_included,
+    supervision_installation_assist_mandays: record.supervision_installation_assist_mandays,
+    supervision_installation_assist_cost: record.supervision_installation_assist_cost,
+    precomm_commissioning_assist_included: record.precomm_commissioning_assist_included,
+    precomm_commissioning_assist_mandays: record.precomm_commissioning_assist_mandays,
+    precomm_commissioning_assist_cost: record.precomm_commissioning_assist_cost,
+    training_included: record.training_included,
+    training_mandays: record.training_mandays,
+    training_cost: record.training_cost,
     updated_by: record.updated_by,
     updated_at: new Date().toISOString(),
   };
