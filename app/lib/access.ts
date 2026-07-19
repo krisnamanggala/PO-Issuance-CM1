@@ -14,8 +14,10 @@ export async function getAuthenticatedUser() {
   return data.user;
 }
 
-export async function getWorkspaceActor(): Promise<WorkspaceActor | null> {
-  const user = await getAuthenticatedUser();
+type AuthenticatedUser = NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>;
+
+export async function getWorkspaceActor(existingUser?: AuthenticatedUser): Promise<WorkspaceActor | null> {
+  const user = existingUser ?? (await getAuthenticatedUser());
   if (!user?.email) return null;
 
   const supabase = await createClient();
