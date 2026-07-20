@@ -18,6 +18,8 @@ export const milestoneNames = [
 
 export const milestoneDueDays = [14, 30, 45, 60, 90] as const;
 
+export const paymentFacilities = ["T/T", "SKBDN", "LC", "Swift"] as const;
+
 export type DeliveryUpdateStatus = (typeof deliveryUpdateStatuses)[number];
 export type MilestoneStatus = (typeof milestoneStatuses)[number];
 export type ServiceType = (typeof serviceTypes)[number];
@@ -66,6 +68,7 @@ export type PaymentMilestoneRecord = {
   amount: string;
   currencyCode: CurrencyCode;
   dueDateDays: number | null;
+  paymentFacility: string | null;
   plannedInvoiceDate: string | null;
   plannedPaymentDate: string | null;
   actualPaymentDate: string | null;
@@ -120,6 +123,7 @@ export function fromDatabaseMilestone(record: Record<string, unknown>): PaymentM
     percentage: record.percentage === null || record.percentage === undefined ? null : String(record.percentage),
     amount: String(record.amount ?? "0"), currencyCode: currency(record.currency_code),
     dueDateDays: record.due_date_days === null || record.due_date_days === undefined ? null : Number(record.due_date_days),
+    paymentFacility: record.payment_facility ? String(record.payment_facility) : null,
     plannedInvoiceDate: date(record.planned_invoice_date), plannedPaymentDate: date(record.planned_payment_date),
     actualPaymentDate: date(record.actual_payment_date), milestoneStatus: record.milestone_status as MilestoneStatus,
     remarks: String(record.remarks ?? ""), createdAt: String(record.created_at ?? ""), updatedAt: String(record.updated_at ?? ""),
@@ -188,6 +192,8 @@ export function validatePaymentMilestone(source: Record<string, unknown>, actor:
     if (!Number.isInteger(parsed) || parsed <= 0) errors.push("Due date must be a positive number of days.");
     else dueDateDays = parsed;
   }
+  const paymentFacility = String(source.paymentFacility ?? "").trim();
+  if (paymentFacility && !(paymentFacilities as readonly string[]).includes(paymentFacility)) errors.push("Choose a valid payment facility.");
   const plannedInvoiceDate = optionalDate(source.plannedInvoiceDate, "Planned invoice date", errors);
   const plannedPaymentDate = optionalDate(source.plannedPaymentDate, "Planned payment date", errors);
   const actualPaymentDate = optionalDate(source.actualPaymentDate, "Actual payment date", errors);
@@ -203,7 +209,7 @@ export function validatePaymentMilestone(source: Record<string, unknown>, actor:
   if (status === "paid" && !actualPaymentDate) errors.push("Actual payment date is required for a paid milestone.");
   return { errors, value: {
     po_revision_id: poRevisionId, sequence_no: sequenceNo, milestone_name: milestoneName, percentage,
-    amount: amountRaw, currency_code: selectedCurrency, due_date_days: dueDateDays, planned_invoice_date: plannedInvoiceDate,
+    amount: amountRaw, currency_code: selectedCurrency, due_date_days: dueDateDays, payment_facility: paymentFacility || null, planned_invoice_date: plannedInvoiceDate,
     planned_payment_date: plannedPaymentDate, actual_payment_date: actualPaymentDate, milestone_status: status,
     remarks: String(source.remarks ?? "").trim().slice(0, 2000), created_by: actor, updated_by: actor,
   } };

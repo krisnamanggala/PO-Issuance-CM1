@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  deliveryUpdateStatuses, latestDeliveryUpdates, milestoneDueDays, milestoneNames, milestoneStatuses,
+  deliveryUpdateStatuses, latestDeliveryUpdates, milestoneDueDays, milestoneNames, milestoneStatuses, paymentFacilities,
   type DeliveryUpdateRecord, type PaymentMilestoneRecord, type POServiceRecord,
 } from "./lib/execution";
 import { currencyCodes, type PORecord } from "./lib/po";
@@ -42,6 +42,8 @@ export default function ExecutionBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
@@ -84,6 +86,32 @@ export default function ExecutionBoard() {
     finally { setSaving(null); }
   }
 
+  function toggleSelected(id: number) {
+    setSelectedIds((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+  function toggleSelectAll(ids: number[], checked: boolean) {
+    setSelectedIds(checked ? new Set(ids) : new Set());
+  }
+
+  async function markSelectedPaid(paid: boolean) {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkSaving(true); setError("");
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      for (const id of ids) {
+        const body = paid
+          ? { id, milestoneStatus: "paid", actualPaymentDate: today }
+          : { id, milestoneStatus: "planned", actualPaymentDate: "" };
+        const response = await fetch("/api/execution", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        if (!response.ok) { const payload = await response.json() as { error?: string }; throw new Error(payload.error ?? "Unable to update the milestone."); }
+      }
+      setSelectedIds(new Set());
+      await refresh();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to update the milestones."); }
+    finally { setBulkSaving(false); }
+  }
+
   return <>
     <section className="page-header"><div><p className="eyebrow">Execution control</p><h1>Delivery & Cash</h1><p>Track delivery forecasts separately from contract dates and convert payment terms into reportable cash milestones.</p></div><div className="page-actions"><button className="button button-quiet" onClick={() => setForm("delivery-update")}>Add delivery update</button><button className="button button-primary" onClick={() => setForm("payment-milestone")}>+ Add milestone</button></div></section>
     {error && <div className="notice" role="alert">{error}<button className="text-button" onClick={() => void refresh()}>Retry</button></div>}
@@ -94,7 +122,7 @@ export default function ExecutionBoard() {
       <article className="dashboard-kpi neutral"><span>Included service cost</span><strong>{money(serviceCost, "IDR")}</strong><small>Normalized service commitments</small></article>
     </section>
     <section className="panel"><div className="panel-heading"><div><h2>Latest delivery position</h2><p>One latest execution update per current PO revision; the contractual ETA remains visible.</p></div></div>{loading ? <div className="loading-table">Loading delivery updates…</div> : latest.length ? <div className="table-scroll"><table className="action-table"><thead><tr><th>PO / vendor</th><th>Contract ETA</th><th>Forecast ETA</th><th>Status</th><th>Progress</th><th>Actual ROS</th><th>Last update</th></tr></thead><tbody>{latest.map(({ po, update }) => <tr key={po.id}><td><strong>{po.projectCode ? `${po.projectCode}-` : ""}{po.purchasingGroup}-{po.poNumber} Rev.{po.revisionNumber}</strong><span>{po.vendorName}</span></td><td>{date(po.etaRosAtSite)}</td><td>{date(update?.forecastEta ?? null)}</td><td><span className={`status-badge status-${update?.deliveryStatus ?? "n/a"}`}>{update?.deliveryStatus?.replaceAll("-", " ") ?? "No update"}</span></td><td>{update ? `${update.progressPercent}%` : "—"}</td><td>{date(update?.actualRosDate ?? null)}</td><td>{date(update?.updateDate ?? null)}</td></tr>)}</tbody></table></div> : <Empty title="No PO execution records yet." copy="Create a PO first, then add delivery updates without changing its contractual schedule." />}</section>
-    <section className="panel"><div className="panel-heading"><div><h2>Payment milestones</h2><p>Planned invoice, payment, and actual payment dates support cash exposure reporting.</p></div></div>{loading ? <div className="loading-table">Loading payment milestones…</div> : data.milestones.length ? <div className="table-scroll"><table className="action-table"><thead><tr><th>PO / milestone</th><th>Share</th><th>Amount</th><th>Due date</th><th>Invoice plan</th><th>Payment plan</th><th>Actual paid</th><th>Status</th></tr></thead><tbody>{data.milestones.map((item) => <tr key={item.id}><td><strong>{item.poNumber} · {item.sequenceNo}. {item.milestoneName}</strong><span>{item.vendorName}</span></td><td>{item.percentage === null ? "—" : `${Number(item.percentage).toLocaleString("en-US")}%`}</td><td>{money(item.amount, item.currencyCode)}</td><td>{item.dueDateDays ? `${item.dueDateDays} days` : "—"}</td><td>{date(item.plannedInvoiceDate)}</td><td>{date(item.plannedPaymentDate)}</td><td>{date(item.actualPaymentDate)}</td><td><select aria-label={`Status for ${item.milestoneName}`} value={item.milestoneStatus} disabled={saving === item.id} onChange={(event) => void updateMilestoneStatus(item, event.target.value)}>{milestoneStatuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>)}</tbody></table></div> : <Empty title="No structured payment milestones yet." copy="Add the first milestone to turn payment terms into an actionable cash forecast." />}</section>
+    <section className="panel"><div className="panel-heading"><div><h2>Payment milestones</h2><p>Amounts derive from PO value × percentage. Select milestones to mark paid or unpaid per PO sequence.</p></div><div className="page-actions"><button className="button button-quiet" type="button" disabled={!selectedIds.size || bulkSaving} onClick={() => void markSelectedPaid(true)}>{bulkSaving ? "Saving…" : `Mark paid${selectedIds.size ? ` (${selectedIds.size})` : ""}`}</button><button className="button button-quiet" type="button" disabled={!selectedIds.size || bulkSaving} onClick={() => void markSelectedPaid(false)}>Mark unpaid</button></div></div>{loading ? <div className="loading-table">Loading payment milestones…</div> : data.milestones.length ? (() => { const milestoneIds = data.milestones.map((item) => item.id); const allSelected = milestoneIds.length > 0 && milestoneIds.every((id) => selectedIds.has(id)); return <div className="table-scroll"><table className="action-table"><thead><tr><th><input type="checkbox" aria-label="Select all milestones" checked={allSelected} onChange={(event) => toggleSelectAll(milestoneIds, event.target.checked)} /></th><th>PO / milestone</th><th>Facility</th><th>Share</th><th>Amount</th><th>Due date</th><th>Actual paid</th><th>Paid?</th><th>Status</th></tr></thead><tbody>{data.milestones.map((item) => <tr key={item.id} className={item.milestoneStatus === "paid" ? "is-paid" : ""}><td><input type="checkbox" aria-label={`Select milestone ${item.sequenceNo} for ${item.poNumber}`} checked={selectedIds.has(item.id)} onChange={() => toggleSelected(item.id)} /></td><td><strong>{item.poNumber} · {item.sequenceNo}. {item.milestoneName}</strong><span>{item.vendorName}</span></td><td>{item.paymentFacility ?? "—"}</td><td>{item.percentage === null ? "—" : `${Number(item.percentage).toLocaleString("en-US")}%`}</td><td>{money(item.amount, item.currencyCode)}</td><td>{item.dueDateDays ? `${item.dueDateDays} days` : "—"}</td><td>{date(item.actualPaymentDate)}</td><td><span className={`status-badge status-${item.milestoneStatus === "paid" ? "paid" : "unpaid"}`}>{item.milestoneStatus === "paid" ? "Paid" : "Unpaid"}</span></td><td><select aria-label={`Status for ${item.milestoneName}`} value={item.milestoneStatus} disabled={saving === item.id || bulkSaving} onChange={(event) => void updateMilestoneStatus(item, event.target.value)}>{milestoneStatuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>)}</tbody></table></div>; })() : <Empty title="No structured payment milestones yet." copy="Add the first milestone to turn payment terms into an actionable cash forecast." />}</section>
     {form === "delivery-update" && <DeliveryForm pos={currentPos} onClose={() => setForm(null)} onSaved={refresh} />}
     {form === "payment-milestone" && <MilestoneForm pos={currentPos} onClose={() => setForm(null)} onSaved={refresh} />}
   </>;
@@ -112,6 +140,26 @@ function DeliveryForm({ pos, onClose, onSaved }: { pos: PORecord[]; onClose: () 
 
 function MilestoneForm({ pos, onClose, onSaved }: { pos: PORecord[]; onClose: () => void; onSaved: () => Promise<void> }) {
   const [error, setError] = useState(""); const [saving, setSaving] = useState(false);
-  async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setSaving(true); setError(""); try { const body = Object.fromEntries(new FormData(event.currentTarget)); const response = await fetch("/api/execution", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "payment-milestone", ...body }) }); const payload = await response.json() as { error?: string }; if (!response.ok) throw new Error(payload.error ?? "Unable to save payment milestone."); await onSaved(); onClose(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to save payment milestone."); } finally { setSaving(false); } }
-  return <div className="modal-backdrop"><section className="form-dialog" role="dialog" aria-modal="true" aria-labelledby="milestone-form-title"><div className="dialog-top"><div><p className="eyebrow">Cash commitment</p><h2 id="milestone-form-title">Add payment milestone</h2><p>Amounts remain in their contract currency; no FX conversion is assumed.</p></div><button className="icon-button" onClick={onClose}>×</button></div><form onSubmit={submit}><fieldset><legend>Milestone identity & value</legend><div className="form-grid"><POSelect pos={pos} /><Input label="Sequence" name="sequenceNo" type="number" min="1" step="1" required /><label className="form-field"><span>Milestone name</span><select name="milestoneName" defaultValue="" required><option value="" disabled>Select milestone name</option>{milestoneNames.map((name) => <option key={name} value={name}>{name}</option>)}</select></label><label className="form-field"><span>Due date</span><select name="dueDateDays" defaultValue=""><option value="">Select due date</option>{milestoneDueDays.map((days) => <option key={days} value={days}>{days} days</option>)}</select></label><Input label="Percentage (%)" name="percentage" type="number" min="0" max="100" step="0.0001" /><Input label="Amount" name="amount" type="number" min="0" step="0.01" required /><label className="form-field"><span>Currency</span><select name="currencyCode" defaultValue="IDR">{currencyCodes.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></label></div></fieldset><label className="textarea-field"><span>Remarks</span><textarea name="remarks" rows={3} /></label>{error && <p className="form-error">{error}</p>}<div className="form-actions"><button type="button" className="button button-quiet" onClick={onClose}>Cancel</button><button className="button button-primary" disabled={saving}>{saving ? "Saving…" : "Save milestone"}</button></div></form></section></div>;
+  const [values, setValues] = useState({ poRevisionId: "", sequenceNo: "1", milestoneName: "", paymentFacility: "", dueDateDays: "", percentage: "", currencyCode: "IDR", remarks: "" });
+  function set<K extends keyof typeof values>(key: K, value: string) { setValues((current) => ({ ...current, [key]: value })); }
+  function choosePo(id: string) { const po = pos.find((item) => String(item.id) === id); setValues((current) => ({ ...current, poRevisionId: id, currencyCode: po?.currencyCode ?? current.currencyCode })); }
+
+  const selectedPo = pos.find((item) => String(item.id) === values.poRevisionId) ?? null;
+  const currency = selectedPo?.currencyCode ?? values.currencyCode;
+  const poValue = selectedPo ? Number(selectedPo.contractValue) : null;
+  const pct = values.percentage === "" ? null : Number(values.percentage);
+  const amount = poValue !== null && pct !== null && Number.isFinite(poValue) && Number.isFinite(pct) ? Number((poValue * pct / 100).toFixed(2)) : null;
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError("");
+    try {
+      const body = { kind: "payment-milestone", poRevisionId: values.poRevisionId, sequenceNo: values.sequenceNo, milestoneName: values.milestoneName, paymentFacility: values.paymentFacility, dueDateDays: values.dueDateDays, percentage: values.percentage, amount: amount === null ? "" : String(amount), currencyCode: currency, remarks: values.remarks };
+      const response = await fetch("/api/execution", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Unable to save payment milestone.");
+      await onSaved(); onClose();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to save payment milestone."); } finally { setSaving(false); }
+  }
+
+  return <div className="modal-backdrop"><section className="form-dialog" role="dialog" aria-modal="true" aria-labelledby="milestone-form-title"><div className="dialog-top"><div><p className="eyebrow">Cash commitment</p><h2 id="milestone-form-title">Add payment milestone</h2><p>The amount is calculated from the PO value and the percentage; no FX conversion is assumed.</p></div><button className="icon-button" onClick={onClose}>×</button></div><form onSubmit={submit}><fieldset><legend>Milestone identity & value</legend><div className="form-grid"><label className="form-field"><span>PO No.</span><select value={values.poRevisionId} onChange={(event) => choosePo(event.target.value)} required><option value="">Choose current PO revision</option>{pos.map((po) => <option key={po.id} value={po.id}>{po.poNumber} · Rev. {po.revisionNumber} · {po.vendorName}</option>)}</select></label><label className="form-field"><span>Sequence</span><input type="number" min="1" step="1" value={values.sequenceNo} onChange={(event) => set("sequenceNo", event.target.value)} required /></label><label className="form-field"><span>Milestone name</span><select value={values.milestoneName} onChange={(event) => set("milestoneName", event.target.value)} required><option value="" disabled>Select milestone name</option>{milestoneNames.map((name) => <option key={name} value={name}>{name}</option>)}</select></label><label className="form-field"><span>Payment facility</span><select value={values.paymentFacility} onChange={(event) => set("paymentFacility", event.target.value)} required><option value="" disabled>Select facility</option>{paymentFacilities.map((facility) => <option key={facility} value={facility}>{facility}</option>)}</select></label><label className="form-field"><span>Due date</span><select value={values.dueDateDays} onChange={(event) => set("dueDateDays", event.target.value)}><option value="">Select due date</option>{milestoneDueDays.map((days) => <option key={days} value={days}>{days} days</option>)}</select></label><label className="form-field"><span>Percentage (%)</span><input type="number" min="0" max="100" step="0.0001" value={values.percentage} onChange={(event) => set("percentage", event.target.value)} required /></label><label className="form-field"><span>Currency</span><select value={currency} onChange={(event) => set("currencyCode", event.target.value)} disabled={Boolean(selectedPo)}>{currencyCodes.map((code) => <option key={code} value={code}>{code}</option>)}</select></label><label className="form-field"><span>Amount (calculated)</span><input type="text" readOnly value={amount === null ? "" : money(amount, currency)} placeholder="PO value × percentage" /></label></div><p className="milestone-copy" style={{ marginTop: 10, fontSize: 11 }}>{selectedPo ? `PO value ${money(selectedPo.contractValue, currency)} × ${values.percentage || 0}% = ${amount === null ? "—" : money(amount, currency)}` : "Select a PO to calculate the amount from its contract value."}</p></fieldset><label className="textarea-field"><span>Remarks</span><textarea value={values.remarks} onChange={(event) => set("remarks", event.target.value)} rows={3} /></label>{error && <p className="form-error">{error}</p>}<div className="form-actions"><button type="button" className="button button-quiet" onClick={onClose}>Cancel</button><button className="button button-primary" disabled={saving}>{saving ? "Saving…" : "Save milestone"}</button></div></form></section></div>;
 }
