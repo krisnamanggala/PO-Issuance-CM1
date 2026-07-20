@@ -84,6 +84,7 @@ export async function PUT(request: Request) {
       plannedPaymentDate: source.plannedPaymentDate ?? existing.planned_payment_date,
       actualPaymentDate: source.actualPaymentDate ?? existing.actual_payment_date,
       milestoneStatus: source.milestoneStatus ?? existing.milestone_status,
+      paymentFacility: source.paymentFacility ?? existing.payment_facility,
       remarks: source.remarks ?? existing.remarks,
     };
     const { value, errors } = validatePaymentMilestone(merged, actor.email);

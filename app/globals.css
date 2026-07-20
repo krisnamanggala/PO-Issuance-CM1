@@ -108,3 +108,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .searchable-options li.is-active { background: #edf6df; color: #3f6a13; }
 .searchable-options li.is-selected { font-weight: 700; }
 .searchable-empty { color: #897e6f; cursor: default; }
+
+/* Payment milestone paid/unpaid indicators. */
+.status-paid { color: #477b16; background: #e8f3dd; }
+.status-unpaid { color: #806313; background: #f8f0d9; }
+.action-table tr.is-paid td { background: #f6faef; }
+.action-table th input[type="checkbox"], .action-table td input[type="checkbox"] { width: 15px; height: 15px; accent-color: #7fbd35; cursor: pointer; }
