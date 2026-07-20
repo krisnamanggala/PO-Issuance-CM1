@@ -1,4 +1,4 @@
-export const purchasingGroups = ["ELE", "INS", "ROT", "PRO"] as const;
+export const purchasingGroups = ["ELE", "INS", "ROT", "PRO", "STA"] as const;
 export const paymentTerms = ["T/T", "SKBDN"] as const;
 export const yesNoValues = ["Yes", "No"] as const;
 export const serviceInclusionValues = ["Included", "Not included"] as const;
@@ -287,7 +287,7 @@ export function validatePOInput(
   }
 
   const purchasingGroup = canonicalGroup(purchasingGroupRaw);
-  if (!purchasingGroup) errors.push("Purchasing group must be ELE, INS, ROT, or PRO.");
+  if (!purchasingGroup) errors.push("Purchasing group must be ELE, INS, ROT, PRO, or STA.");
   const termOfPayment = canonicalPayment(paymentRaw);
   if (!termOfPayment) errors.push("Term of payment must be T/T or SKBDN.");
   const incoterm = canonicalIncoterm(incotermRaw);
