@@ -204,8 +204,15 @@ export default function POMonitor({ user, embedded = false }: MonitorProps) {
     });
     const payload = (await response.json()) as { record?: PORecord; error?: string };
     if (!response.ok) throw new Error(payload.error ?? "Unable to save the PO record.");
-    await refresh();
-    if (payload.record) setSelected(payload.record);
+    if (payload.record) {
+      const saved = payload.record;
+      setRecords((current) => current.some((record) => record.id === saved.id)
+        ? current.map((record) => (record.id === saved.id ? saved : record))
+        : [saved, ...current]);
+      setSelected(saved);
+    } else {
+      void refresh();
+    }
     setNotice(mode === "revision" ? "New revision saved. Earlier issuance records remain preserved." : "PO record saved.");
   }
 

@@ -85,7 +85,7 @@ pnpm lint
 pnpm test
 ```
 
-The app is a Next.js App Router project and requires Node.js 22.13 or later.
+Open [http://localhost:3000](http://localhost:3000) after the development server starts. For new-account email confirmation, add `http://localhost:3000/auth/callback` and `http://127.0.0.1:3000/auth/callback` to Supabase Auth Redirect URLs. The app is a Next.js App Router project and requires Node.js 22.13 or later.
 
 ## Vercel deployment
 

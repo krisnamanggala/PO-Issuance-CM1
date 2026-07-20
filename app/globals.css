@@ -94,3 +94,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .auth-form button:hover { background: #5e9620; }
 .auth-form p { margin: 4px 0 0; color: #635a50; font-size: 12px; line-height: 1.45; }
 .auth-error { padding: 10px; border-radius: 7px; color: #7a4b30 !important; background: #fbefea; font-size: 12px; }
+
+/* Separate form buttons from an immediately preceding remarks field. */
+.textarea-field + .form-actions { margin-top: 16px; }
