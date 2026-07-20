@@ -97,3 +97,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* Separate form buttons from an immediately preceding remarks field. */
 .textarea-field + .form-actions { margin-top: 16px; }
+
+/* Searchable dropdown (type-ahead) used for vendor and issuing-bank selection. */
+.searchable-select { position: relative; }
+.searchable-control { position: relative; }
+.searchable-control input { width: 100%; min-height: 36px; padding: 0 9px; border: 1px solid #d4c7b1; border-radius: 6px; color: #352a21; background: #fffdf8; font-size: 12px; }
+.searchable-control input:focus { border-color: #7fbd35; }
+.searchable-options { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; right: 0; max-height: 232px; margin: 0; padding: 4px; list-style: none; overflow-y: auto; border: 1px solid #d4c7b1; border-radius: 7px; background: #fffdf8; box-shadow: 0 12px 26px rgba(38,22,17,.16); }
+.searchable-options li { padding: 7px 9px; border-radius: 5px; color: #3a2f25; font-size: 12px; cursor: pointer; }
+.searchable-options li.is-active { background: #edf6df; color: #3f6a13; }
+.searchable-options li.is-selected { font-weight: 700; }
+.searchable-empty { color: #897e6f; cursor: default; }
