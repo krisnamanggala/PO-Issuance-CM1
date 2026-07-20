@@ -16,7 +16,7 @@ export async function PUT(request: Request, context: RouteContext) {
     const { data: previous, error: previousError } = await supabase.from("bonds").select().eq("id", id).single();
     if (previousError || !previous) return Response.json({ error: "Bond not found." }, { status: 404 });
     // Expected value is retained for historic bonds but is no longer an editable field.
-    const updateValue = { ...result.value, expected_value: previous.expected_value, received_date: previous.received_date, issue_date: previous.issue_date, released_date: previous.released_date, updated_at: new Date().toISOString() };
+    const updateValue = { ...result.value, bond_number: previous.bond_number, expected_value: previous.expected_value, received_date: previous.received_date, issue_date: previous.issue_date, released_date: previous.released_date, updated_at: new Date().toISOString() };
     const { data, error } = await supabase.from("bonds").update(updateValue).eq("id", id).select("*, po_revisions(po_number, revision_number, vendor_name, projects(project_code))").single();
     if (error) throw error;
     const actionType = result.value.expiry_date !== previous.expiry_date ? "extended" : "updated";

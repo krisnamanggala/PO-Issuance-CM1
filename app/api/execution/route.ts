@@ -79,6 +79,7 @@ export async function PUT(request: Request) {
     const merged = {
       poRevisionId: existing.po_revision_id, sequenceNo: existing.sequence_no, milestoneName: existing.milestone_name,
       percentage: existing.percentage, amount: existing.amount, currencyCode: existing.currency_code,
+      dueDateDays: source.dueDateDays ?? existing.due_date_days,
       plannedInvoiceDate: source.plannedInvoiceDate ?? existing.planned_invoice_date,
       plannedPaymentDate: source.plannedPaymentDate ?? existing.planned_payment_date,
       actualPaymentDate: source.actualPaymentDate ?? existing.actual_payment_date,

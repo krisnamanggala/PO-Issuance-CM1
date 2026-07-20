@@ -135,7 +135,8 @@ test("enforces the revised vendor and currency contract without removing histori
 
   assert.match(po, /currencyCodes = \["IDR", "USD", "AUD", "JPY", "CNY", "GBP", "EUR"\]/);
   assert.match(po, /Currency must be IDR, USD, AUD, JPY, CNY, GBP, or EUR/);
-  assert.match(monitor, /optionLabel=\{\(vendor\) => `\$\{vendor\.vendor_name\} \(\$\{vendor\.vendor_code\}\)`\}/);
+  assert.match(monitor, /SearchableSelect label="Vendor"/);
+  assert.match(monitor, /\$\{vendor\.vendor_name\} \(\$\{vendor\.vendor_code\}\)/);
   assert.doesNotMatch(monitor, /<fieldset><legend>Operational status<\/legend>/);
   assert.doesNotMatch(bonds, /Input label="Expected bond value"/);
   assert.doesNotMatch(bonds, /Input label="Received date"/);
