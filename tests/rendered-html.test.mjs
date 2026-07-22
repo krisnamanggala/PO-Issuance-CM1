@@ -109,12 +109,13 @@ test("adds calculated procurement dashboard, bond history, and protected master 
 });
 
 test("adds normalized execution, cash, service, revision, and management-action data", async () => {
-  const [migration, execution, executionApi, executionLib, dashboard, status, monitor, alerts, deliveryMigration] = await Promise.all([
+  const [migration, execution, executionApi, executionLib, dashboard, dashboardApi, status, monitor, alerts, deliveryMigration] = await Promise.all([
     source("supabase/migrations/20260718190000_add_executive_monitoring_data.sql"),
     source("app/execution-board.tsx"),
     source("app/api/execution/route.ts"),
     source("app/lib/execution.ts"),
     source("app/dashboard-overview.tsx"),
+    source("app/api/dashboard/route.ts"),
     source("app/lib/status.ts"),
     source("app/po-monitor.tsx"),
     source("app/alerts-board.tsx"),
@@ -141,6 +142,10 @@ test("adds normalized execution, cash, service, revision, and management-action 
   assert.match(executionApi, /validateDeliveryUpdate/);
   assert.match(executionApi, /validatePaymentMilestone/);
   assert.match(dashboard, /Budget headroom/);
+  assert.match(dashboard, /All projects/);
+  assert.match(dashboard, /selectProject/);
+  assert.match(dashboardApi, /searchParams\.get\("project"\)/);
+  assert.match(dashboardApi, /scopedRecords/);
   assert.match(dashboard, /Unpaid cash milestones/);
   assert.match(dashboard, /Supplier Concentration/);
   assert.match(status, /revisionDeltaByCurrency/);
