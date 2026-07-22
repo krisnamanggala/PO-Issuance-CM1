@@ -109,14 +109,16 @@ test("adds calculated procurement dashboard, bond history, and protected master 
 });
 
 test("adds normalized execution, cash, service, revision, and management-action data", async () => {
-  const [migration, execution, executionApi, dashboard, status, monitor, alerts] = await Promise.all([
+  const [migration, execution, executionApi, executionLib, dashboard, status, monitor, alerts, deliveryMigration] = await Promise.all([
     source("supabase/migrations/20260718190000_add_executive_monitoring_data.sql"),
     source("app/execution-board.tsx"),
     source("app/api/execution/route.ts"),
+    source("app/lib/execution.ts"),
     source("app/dashboard-overview.tsx"),
     source("app/lib/status.ts"),
     source("app/po-monitor.tsx"),
     source("app/alerts-board.tsx"),
+    source("supabase/migrations/20260722113000_add_delivery_workflow_statuses.sql"),
   ]);
 
   assert.match(migration, /create table if not exists public\.delivery_updates/);
@@ -132,6 +134,10 @@ test("adds normalized execution, cash, service, revision, and management-action 
   assert.match(execution, /Add payment milestone/);
   assert.match(execution, /Forecast ETA Site/);
   assert.doesNotMatch(execution, /Progress \(%\)/);
+  assert.match(execution, /deliveryUpdateStatuses\.map/);
+  assert.match(executionLib, /approval-drawing/);
+  assert.match(executionLib, /at-vendor-workshop/);
+  assert.match(deliveryMigration, /at-vendor-workshop/);
   assert.match(executionApi, /validateDeliveryUpdate/);
   assert.match(executionApi, /validatePaymentMilestone/);
   assert.match(dashboard, /Budget headroom/);
