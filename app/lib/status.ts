@@ -216,7 +216,8 @@ export function dashboardMetrics(records: PORecord[], bonds: BondRecord[], setti
     .map((record) => daysUntil(record.etaRosAtSite, new Date(`${record.releasedDate}T00:00:00Z`)))
     .filter((days): days is number => days !== null && days >= 0)
     .map((days) => days / 7);
-  const budgetVarianceByCurrency = active.reduce<Record<string, number>>((totals, record) => {
+  const budgeted = active.filter((record) => record.budget !== null);
+  const budgetVarianceByCurrency = budgeted.reduce<Record<string, number>>((totals, record) => {
     totals[record.currencyCode] = (totals[record.currencyCode] ?? 0) + (Number(record.budget) || 0) - (Number(record.contractValue) || 0);
     return totals;
   }, {});
@@ -248,6 +249,7 @@ export function dashboardMetrics(records: PORecord[], bonds: BondRecord[], setti
     missingWarrantyBonds: wb.filter((status) => status === "missing").length,
     warrantyBondsExpiring: wb.filter((status) => status === "critical").length,
     budgetVarianceByCurrency,
+    budgetUnavailablePos: active.length - budgeted.length,
     unpaidMilestones: unpaid.length,
     unpaidValueByCurrency,
     serviceCostIdr: services.filter((item) => activeIds.has(item.poRevisionId) && item.included).reduce((sum, item) => sum + (Number(item.costIdr) || 0), 0),
