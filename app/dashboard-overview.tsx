@@ -10,7 +10,7 @@ type DashboardPayload = {
     activePos: number; activeValueByCurrency: Record<string, number>; delayedDeliveries: number; dueWithin30Days: number;
     averageLeadTimeWeeks: number; missingPerformanceBonds: number; performanceBondsExpiring: number;
     missingWarrantyBonds: number; warrantyBondsExpiring: number; deliveryBreakdown: Record<string, number>; bondBreakdown: Record<string, number>;
-    delayedValueByCurrency: Record<string, number>; budgetVarianceByCurrency: Record<string, number>;
+    delayedValueByCurrency: Record<string, number>; budgetVarianceByCurrency: Record<string, number>; budgetUnavailablePos: number;
     unpaidMilestones: number; unpaidValueByCurrency: Record<string, number>; serviceCostIdr: number;
     revisionDeltaByCurrency: Record<string, number>; paymentBreakdown: Record<string, number>;
   };
@@ -81,7 +81,7 @@ export default function DashboardOverview() {
   const { metrics } = data;
   const cards = [
     { title: "Committed PO value", value: metrics.activePos, detail: <div className="currency-lines">{valueLines(metrics.activeValueByCurrency)}</div>, tone: "neutral", href: "/register?status=active", tip: "Current committed value by contract currency; currencies are never combined without an approved FX source." },
-    { title: "Budget headroom", value: "By currency", detail: <div className="currency-lines">{valueLines(metrics.budgetVarianceByCurrency)}</div>, tone: "neutral", href: "/register", tip: "Budget minus current contract value, kept separate by currency." },
+    { title: "Budget headroom", value: metrics.budgetUnavailablePos === metrics.activePos ? "Budget not set" : "By currency", detail: metrics.budgetUnavailablePos === metrics.activePos ? "No budget is available for the selected active POs." : <div className="currency-lines">{valueLines(metrics.budgetVarianceByCurrency)}{metrics.budgetUnavailablePos > 0 && <span>{metrics.budgetUnavailablePos} PO without available budget excluded</span>}</div>, tone: "neutral", href: "/register", tip: "Budget minus current contract value, kept separate by currency. POs without a budget are excluded from this calculation." },
     { title: "Past delivery forecast", value: metrics.delayedDeliveries, detail: <div className="currency-lines">{valueLines(metrics.delayedValueByCurrency)}</div>, tone: "critical", href: "/execution", tip: "Exposure on active POs past the latest forecast ETA or, when absent, the contract ETA." },
     { title: "Unpaid cash milestones", value: metrics.unpaidMilestones, detail: <div className="currency-lines">{valueLines(metrics.unpaidValueByCurrency)}</div>, tone: "warning", href: "/execution", tip: "Planned, invoiced, and on-hold milestones for current active PO revisions." },
     { title: "Current revision delta", value: "Net change", detail: <div className="currency-lines">{valueLines(metrics.revisionDeltaByCurrency)}</div>, tone: "neutral", href: "/register?view=all", tip: "Current contract value less the linked prior revision, by currency." },
