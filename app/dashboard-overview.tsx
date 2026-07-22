@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CriticalAction, DashboardVisuals } from "./lib/status";
 
@@ -15,6 +16,8 @@ type DashboardPayload = {
   };
   actions: CriticalAction[];
   visuals: DashboardVisuals;
+  projects: string[];
+  selectedProject: string | null;
   isEmpty: boolean;
   refreshedAt: string;
 };
@@ -38,6 +41,9 @@ function valueLines(values: Record<string, number>) {
 }
 
 export default function DashboardOverview() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedProject = searchParams.get("project") ?? "all";
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -47,19 +53,27 @@ export default function DashboardOverview() {
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const response = await fetch("/api/dashboard", { cache: "no-store" });
+      const query = selectedProject === "all" ? "" : `?project=${encodeURIComponent(selectedProject)}`;
+      const response = await fetch(`/api/dashboard${query}`, { cache: "no-store" });
       const payload = await response.json() as DashboardPayload & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Unable to load dashboard.");
       setData(payload);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to load dashboard."); }
     finally { setLoading(false); }
-  }, []);
+  }, [selectedProject]);
 
   // Initial remote data load; subsequent refreshes are explicit user actions.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void refresh(); }, [refresh]);
   const issues = useMemo(() => data?.actions.filter((action) => (priority === "all" || action.priority === priority) && (issueType === "all" || action.issueType === issueType)) ?? [], [data, issueType, priority]);
   const issueTypes = useMemo(() => [...new Set(data?.actions.map((action) => action.issueType) ?? [])], [data]);
+
+  function selectProject(project: string) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (project === "all") next.delete("project");
+    else next.set("project", project);
+    router.replace(next.size ? `/?${next.toString()}` : "/", { scroll: false });
+  }
 
   if (loading && !data) return <DashboardSkeleton />;
   if (error && !data) return <section className="page-error"><h1>Overview unavailable</h1><p>{error}</p><button className="button button-primary" onClick={() => void refresh()}>Retry</button></section>;
@@ -82,6 +96,7 @@ export default function DashboardOverview() {
       <div className="page-actions"><Link className="button button-quiet" href="/execution">Delivery & Cash</Link><Link className="button button-quiet" href="/bonds?new=1">Add Bond</Link><Link className="button button-primary" href="/register?new=1">+ New PO</Link></div>
     </section>
     {error && <div className="notice" role="status">{error}<button onClick={() => void refresh()} className="text-button">Retry</button></div>}
+    <section className="dashboard-slicer panel" aria-label="Dashboard filters"><label>Project<select value={selectedProject} onChange={(event) => selectProject(event.target.value)}><option value="all">All projects</option>{data.projects.map((project) => <option key={project} value={project}>{project}</option>)}</select></label><span>{data.selectedProject ? `Showing Project ${data.selectedProject}` : "Showing all projects"}</span></section>
     <section className="dashboard-kpis" aria-label="Procurement risk indicators">
       {cards.map((card) => <Link key={card.title} href={card.href} className={`dashboard-kpi ${card.tone}`} title={card.tip}><span>{card.title}</span><strong>{card.value}</strong><small>{card.detail}</small><i aria-hidden="true">→</i></Link>)}
     </section>
