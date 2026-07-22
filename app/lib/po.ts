@@ -3,6 +3,7 @@ export const paymentTerms = ["T/T", "SKBDN"] as const;
 export const currencyCodes = ["IDR", "USD", "AUD", "JPY", "CNY", "GBP", "EUR"] as const;
 export const yesNoValues = ["Yes", "No"] as const;
 export const serviceInclusionValues = ["Included", "Not included"] as const;
+export const incotermLocations = ["Jakarta", "Overseas", "Site"] as const;
 export const incoterms = [
   { value: "EXW", label: "EXW – Ex Works" },
   { value: "FCA", label: "FCA – Free Carrier" },
@@ -21,6 +22,7 @@ export type PurchasingGroup = (typeof purchasingGroups)[number];
 export type PaymentTerm = (typeof paymentTerms)[number];
 export type CurrencyCode = (typeof currencyCodes)[number];
 export type Incoterm = (typeof incoterms)[number]["value"];
+export type IncotermLocation = (typeof incotermLocations)[number];
 export type ServiceInclusion = (typeof serviceInclusionValues)[number];
 
 export type PORecord = {
@@ -209,6 +211,13 @@ function canonicalIncoterm(value: string): Incoterm | null {
   return match?.value ?? null;
 }
 
+function canonicalIncotermLocation(value: string): IncotermLocation | null {
+  const match = incotermLocations.find(
+    (location) => location.toLowerCase() === value.toLowerCase(),
+  );
+  return match ?? null;
+}
+
 function optionalIsoDate(value: unknown, label: string, errors: string[]) {
   const raw = String(value ?? "").trim();
   if (!raw) return null;
@@ -303,7 +312,7 @@ export function validatePOInput(
   );
   const projectId = optionalId(source.projectId, "Project", errors);
   const vendorId = requiredId(source.vendorId, "Vendor", errors);
-  const location = requiredString(source.location, "Incoterm location", errors);
+  const locationRaw = requiredString(source.location, "Location as per Incoterm", errors);
   const equipmentName = requiredString(source.equipmentName, "Equipment name", errors);
   const vendorName = requiredString(source.vendorName, "Vendor name", errors);
   const budget = requiredString(source.budget, "Budget", errors);
@@ -346,9 +355,6 @@ export function validatePOInput(
   if (milestoneDetails.length > 2000) {
     errors.push("Milestone details must be 2,000 characters or fewer.");
   }
-  if (location.length > 250) {
-    errors.push("Incoterm location must be 250 characters or fewer.");
-  }
   if (previousRevisionId && !revisionReason) {
     errors.push("Revision reason is required when creating a new revision.");
   }
@@ -362,6 +368,8 @@ export function validatePOInput(
   if (!termOfPayment) errors.push("Term of payment must be T/T or SKBDN.");
   const incoterm = canonicalIncoterm(incotermRaw);
   if (!incoterm) errors.push("Choose an Incoterm from the approved list.");
+  const location = canonicalIncotermLocation(locationRaw);
+  if (!location) errors.push("Location as per Incoterm must be Jakarta, Overseas, or Site.");
 
   const pb = stringBoolean(source.pb, "PB", errors);
   const pbValidityRaw = String(source.pbValidity ?? "").trim();
@@ -410,7 +418,7 @@ export function validatePOInput(
       projectCode: null,
       projectName: null,
       vendorId,
-      location,
+      location: location ?? "Jakarta",
       equipmentName,
       vendorName,
       budget: canonicalMoney(budget),
