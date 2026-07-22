@@ -4,6 +4,11 @@ export const currencyCodes = ["IDR", "USD", "AUD", "JPY", "CNY", "GBP", "EUR"] a
 export const yesNoValues = ["Yes", "No"] as const;
 export const serviceInclusionValues = ["Included", "Not included"] as const;
 export const incotermLocations = ["Jakarta", "Overseas", "Site"] as const;
+export const deliveryToSiteWeeks: Record<IncotermLocation, number> = {
+  Jakarta: 2,
+  Overseas: 3,
+  Site: 0,
+};
 export const incoterms = [
   { value: "EXW", label: "EXW – Ex Works" },
   { value: "FCA", label: "FCA – Free Carrier" },
@@ -129,7 +134,6 @@ export const csvHeaders = [
   "currency_code",
   "delivery_lead_time_weeks",
   "incoterm",
-  "eta_ros_at_site",
   "term_of_payment",
   "milestone_details",
   "pb",
@@ -216,6 +220,20 @@ function canonicalIncotermLocation(value: string): IncotermLocation | null {
     (location) => location.toLowerCase() === value.toLowerCase(),
   );
   return match ?? null;
+}
+
+export function calculateEtaRosAtSite(
+  releasedDate: string,
+  deliveryLeadTimeWeeks: string | number,
+  location: string,
+) {
+  const leadTimeWeeks = Number(deliveryLeadTimeWeeks);
+  const incotermLocation = canonicalIncotermLocation(location);
+  if (!isRealIsoDate(releasedDate) || !Number.isInteger(leadTimeWeeks) || leadTimeWeeks < 0 || !incotermLocation) return "";
+
+  const eta = new Date(`${releasedDate}T00:00:00Z`);
+  eta.setUTCDate(eta.getUTCDate() + ((leadTimeWeeks + deliveryToSiteWeeks[incotermLocation]) * 7));
+  return eta.toISOString().slice(0, 10);
 }
 
 function optionalIsoDate(value: unknown, label: string, errors: string[]) {
@@ -323,7 +341,6 @@ export function validatePOInput(
     errors,
   );
   const incotermRaw = requiredString(source.incoterm, "Incoterm", errors);
-  const etaRosAtSite = requiredString(source.etaRosAtSite, "ETA ROS at site", errors);
   const paymentRaw = requiredString(source.termOfPayment, "Term of payment", errors);
   const milestoneDetails = String(source.milestoneDetails ?? "").trim();
   const currencyCode = String(source.currencyCode ?? "IDR").trim().toUpperCase() || "IDR";
@@ -339,9 +356,6 @@ export function validatePOInput(
   }
   if (!isRealIsoDate(releasedDate)) {
     errors.push("Released date must use YYYY-MM-DD.");
-  }
-  if (!isRealIsoDate(etaRosAtSite)) {
-    errors.push("ETA ROS at site must use YYYY-MM-DD.");
   }
   if (!moneyPattern.test(budget)) {
     errors.push("Budget must be a non-negative IDR amount with up to two decimals.");
@@ -370,6 +384,7 @@ export function validatePOInput(
   if (!incoterm) errors.push("Choose an Incoterm from the approved list.");
   const location = canonicalIncotermLocation(locationRaw);
   if (!location) errors.push("Location as per Incoterm must be Jakarta, Overseas, or Site.");
+  const etaRosAtSite = calculateEtaRosAtSite(releasedDate, leadTimeRaw, locationRaw);
 
   const pb = stringBoolean(source.pb, "PB", errors);
   const pbValidityRaw = String(source.pbValidity ?? "").trim();
@@ -539,7 +554,7 @@ export function csvRowToInput(row: Record<string, string>): POInputFields {
     currencyCode: row.currency_code || "IDR",
     deliveryLeadTimeWeeks: row.delivery_lead_time_weeks,
     incoterm: row.incoterm,
-    etaRosAtSite: row.eta_ros_at_site,
+    etaRosAtSite: "",
     termOfPayment: row.term_of_payment,
     milestoneDetails: row.milestone_details,
     pb: row.pb,
