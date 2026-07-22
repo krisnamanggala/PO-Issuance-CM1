@@ -130,6 +130,8 @@ test("adds normalized execution, cash, service, revision, and management-action 
   assert.match(execution, /Delivery & Cash/);
   assert.match(execution, /Add delivery update/);
   assert.match(execution, /Add payment milestone/);
+  assert.match(execution, /Forecast ETA Site/);
+  assert.doesNotMatch(execution, /Progress \(%\)/);
   assert.match(executionApi, /validateDeliveryUpdate/);
   assert.match(executionApi, /validatePaymentMilestone/);
   assert.match(dashboard, /Budget headroom/);
