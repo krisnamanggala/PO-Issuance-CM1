@@ -34,15 +34,20 @@ test("defines the durable PO revision contract and CSV safeguards", async () => 
   assert.match(validation, /incoterms/);
   assert.match(validation, /serviceInclusionValues/);
   assert.match(validation, /Included or Not included/);
+  assert.match(validation, /calculateEtaRosAtSite/);
+  assert.match(validation, /Jakarta: 2/);
+  assert.match(validation, /Overseas: 3/);
+  assert.match(validation, /Site: 0/);
 });
 
 test("ships the PO issuance monitoring surface without the starter skeleton", async () => {
-  const [page, monitor, api, access, signIn] = await Promise.all([
+  const [page, monitor, api, access, signIn, poDatabase] = await Promise.all([
     source("app/page.tsx"),
     source("app/po-monitor.tsx"),
     source("app/api/pos/import/route.ts"),
     source("app/lib/access.ts"),
     source("app/sign-in/sign-in-form.tsx"),
+    source("app/lib/po-db.ts"),
   ]);
 
   assert.match(page, /requireWorkspace/);
@@ -53,6 +58,10 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(monitor, /Cost \(IDR\)/);
   assert.match(monitor, /Location as per Incoterm/);
   assert.match(monitor, /incotermLocations\.map/);
+  assert.match(monitor, /ETA to Site \(calculated\)/);
+  assert.match(monitor, /formatEtaToSite/);
+  assert.match(monitor, /PO issued date/);
+  assert.match(poDatabase, /calculateEtaRosAtSite/);
   assert.match(monitor, /Current revisions/);
   assert.match(monitor, /Import CSV/);
   assert.match(monitor, /New revision/);
