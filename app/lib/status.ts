@@ -87,7 +87,7 @@ export function daysUntil(value: string | null | undefined, today = new Date()) 
 export function deliveryStatus(record: PORecord, settings = defaultDashboardSettings, today = new Date(), update?: DeliveryUpdateRecord | null): DeliveryStatus {
   if (update?.deliveryStatus === "cancelled" || record.cancelledAt) return "cancelled";
   if (update?.deliveryStatus === "completed" || record.deliveryCompletedAt) return "completed";
-  const days = daysUntil(update?.forecastEta ?? record.etaRosAtSite, today);
+  const days = daysUntil(update?.forecastEtaSite ?? record.etaRosAtSite, today);
   if (days === null) return "missing-eta";
   if (days < 0) return "delayed";
   if (days <= settings.deliveryWarningDays) return "due-soon";
@@ -151,7 +151,7 @@ export function criticalActions(records: PORecord[], bonds: BondRecord[], settin
     const update = latestDelivery.get(record.id);
     if (!isActivePO(record, update)) continue;
     const delivery = deliveryStatus(record, settings, today, update);
-    const effectiveEta = update?.forecastEta ?? record.etaRosAtSite;
+    const effectiveEta = update?.forecastEtaSite ?? record.etaRosAtSite;
     const etaDays = daysUntil(effectiveEta, today);
     const common = {
       poNumber: record.poNumber,
@@ -292,7 +292,7 @@ export function dashboardVisuals(records: PORecord[], bonds: BondRecord[], setti
     if (delivery === "delayed") {
       const vendorName = record.vendorName || "Unassigned vendor";
       const vendor = vendors.get(vendorName) ?? { vendor: vendorName, count: 0, maxDays: 0, values: {} };
-      const overdueDays = Math.abs(daysUntil(update?.forecastEta ?? record.etaRosAtSite, today) ?? 0);
+      const overdueDays = Math.abs(daysUntil(update?.forecastEtaSite ?? record.etaRosAtSite, today) ?? 0);
       vendor.count += 1;
       vendor.maxDays = Math.max(vendor.maxDays, overdueDays);
       vendor.values[record.currencyCode] = (vendor.values[record.currencyCode] ?? 0) + (Number(record.contractValue) || 0);
