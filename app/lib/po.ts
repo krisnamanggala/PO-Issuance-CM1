@@ -45,7 +45,7 @@ export type PORecord = {
   location: string;
   equipmentName: string;
   vendorName: string;
-  budget: string;
+  budget: string | null;
   contractValue: string;
   currencyCode: CurrencyCode;
   deliveryLeadTimeWeeks: number;
@@ -154,7 +154,7 @@ export const csvHeaders = [
 // Project code remains optional for legacy PO records. Operational-status fields
 // are retained in the database for historical reporting but are no longer imported.
 export const requiredCsvHeaders = csvHeaders.filter((header) => ![
-  "project_code",
+  "project_code", "budget_idr",
 ].includes(header));
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -333,7 +333,7 @@ export function validatePOInput(
   const locationRaw = requiredString(source.location, "Location as per Incoterm", errors);
   const equipmentName = requiredString(source.equipmentName, "Equipment name", errors);
   const vendorName = requiredString(source.vendorName, "Vendor name", errors);
-  const budget = requiredString(source.budget, "Budget", errors);
+  const budget = String(source.budget ?? "").trim();
   const contractValue = requiredString(source.contractValue, "Contract value", errors);
   const leadTimeRaw = requiredString(
     source.deliveryLeadTimeWeeks,
@@ -357,7 +357,7 @@ export function validatePOInput(
   if (!isRealIsoDate(releasedDate)) {
     errors.push("Released date must use YYYY-MM-DD.");
   }
-  if (!moneyPattern.test(budget)) {
+  if (budget && !moneyPattern.test(budget)) {
     errors.push("Budget must be a non-negative IDR amount with up to two decimals.");
   }
   if (!moneyPattern.test(contractValue)) {
@@ -436,7 +436,7 @@ export function validatePOInput(
       location: location ?? "Jakarta",
       equipmentName,
       vendorName,
-      budget: canonicalMoney(budget),
+      budget: budget ? canonicalMoney(budget) : null,
       contractValue: canonicalMoney(contractValue),
       currencyCode: (currencyCodes as readonly string[]).includes(currencyCode) ? currencyCode as CurrencyCode : "IDR",
       deliveryLeadTimeWeeks: Number.parseInt(leadTimeRaw || "0", 10),
