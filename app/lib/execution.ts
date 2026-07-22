@@ -45,10 +45,9 @@ export type DeliveryUpdateRecord = {
   contractValue: string;
   currencyCode: CurrencyCode;
   updateDate: string;
-  forecastEta: string | null;
+  forecastEtaSite: string | null;
   actualRosDate: string | null;
   deliveryStatus: DeliveryUpdateStatus;
-  progressPercent: number;
   delayReason: string;
   remarks: string;
   createdBy: string;
@@ -107,8 +106,8 @@ export function fromDatabaseDelivery(record: Record<string, unknown>): DeliveryU
     revisionNumber: Number(po.revision_number ?? 0), vendorName: po.vendor_name ?? "",
     equipmentName: po.equipment_name ?? "", projectCode: po.projects?.project_code ?? null,
     contractValue: String(po.contract_value ?? "0"), currencyCode: currency(po.currency_code),
-    updateDate: date(record.update_date) ?? "", forecastEta: date(record.forecast_eta), actualRosDate: date(record.actual_ros_date),
-    deliveryStatus: record.delivery_status as DeliveryUpdateStatus, progressPercent: Number(record.progress_percent ?? 0),
+    updateDate: date(record.update_date) ?? "", forecastEtaSite: date(record.forecast_eta), actualRosDate: date(record.actual_ros_date),
+    deliveryStatus: record.delivery_status as DeliveryUpdateStatus,
     delayReason: String(record.delay_reason ?? ""), remarks: String(record.remarks ?? ""),
     createdBy: String(record.created_by ?? ""), createdAt: String(record.created_at ?? ""),
   };
@@ -160,17 +159,15 @@ export function validateDeliveryUpdate(source: Record<string, unknown>, actor: s
   const errors: string[] = [];
   const poRevisionId = validPORevisionId(source.poRevisionId, errors);
   const updateDate = optionalDate(source.updateDate, "Update date", errors);
-  const forecastEta = optionalDate(source.forecastEta, "Forecast ETA", errors);
+  const forecastEtaSite = optionalDate(source.forecastEtaSite, "Forecast ETA Site", errors);
   const actualRosDate = optionalDate(source.actualRosDate, "Actual ROS date", errors);
   const deliveryStatus = String(source.deliveryStatus ?? "");
-  const progressPercent = Number(source.progressPercent);
   if (!updateDate) errors.push("Update date is required.");
   if (!(deliveryUpdateStatuses as readonly string[]).includes(deliveryStatus)) errors.push("Choose a valid delivery status.");
-  if (!Number.isFinite(progressPercent) || progressPercent < 0 || progressPercent > 100) errors.push("Progress must be from 0 to 100 percent.");
   if (deliveryStatus === "completed" && !actualRosDate) errors.push("Actual ROS date is required when delivery is completed.");
   return { errors, value: {
-    po_revision_id: poRevisionId, update_date: updateDate, forecast_eta: forecastEta, actual_ros_date: actualRosDate,
-    delivery_status: deliveryStatus, progress_percent: progressPercent,
+    po_revision_id: poRevisionId, update_date: updateDate, forecast_eta: forecastEtaSite, actual_ros_date: actualRosDate,
+    delivery_status: deliveryStatus,
     delay_reason: String(source.delayReason ?? "").trim().slice(0, 1000), remarks: String(source.remarks ?? "").trim().slice(0, 2000),
     created_by: actor,
   } };
