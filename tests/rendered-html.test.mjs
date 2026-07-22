@@ -35,6 +35,7 @@ test("defines the durable PO revision contract and CSV safeguards", async () => 
   assert.match(validation, /serviceInclusionValues/);
   assert.match(validation, /Included or Not included/);
   assert.match(validation, /calculateEtaRosAtSite/);
+  assert.match(validation, /"project_code", "budget_idr"/);
   assert.match(validation, /Jakarta: 2/);
   assert.match(validation, /Overseas: 3/);
   assert.match(validation, /Site: 0/);
@@ -142,6 +143,8 @@ test("adds normalized execution, cash, service, revision, and management-action 
   assert.match(executionApi, /validateDeliveryUpdate/);
   assert.match(executionApi, /validatePaymentMilestone/);
   assert.match(dashboard, /Budget headroom/);
+  assert.match(dashboard, /Budget not set/);
+  assert.match(status, /budgetUnavailablePos/);
   assert.match(dashboard, /All projects/);
   assert.match(dashboard, /selectProject/);
   assert.match(dashboardApi, /searchParams\.get\("project"\)/);
