@@ -1,8 +1,8 @@
 import { currencyCodes, type CurrencyCode } from "./po";
 
 export const deliveryUpdateStatuses = [
-  "not-started", "manufacturing", "ready-to-ship", "in-transit",
-  "arrived-at-site", "completed", "cancelled",
+  "not-started", "approval-drawing", "manufacturing", "ready-to-ship", "in-transit",
+  "at-vendor-workshop", "arrived-at-site", "completed", "cancelled",
 ] as const;
 export const milestoneStatuses = ["planned", "invoiced", "paid", "on-hold"] as const;
 export const serviceTypes = ["supervision-installation", "precomm-commissioning", "training"] as const;
