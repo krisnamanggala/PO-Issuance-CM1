@@ -51,7 +51,8 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(monitor, /Supervision & installation assist/);
   assert.match(monitor, /Precomm\/commissioning assist/);
   assert.match(monitor, /Cost \(IDR\)/);
-  assert.match(monitor, /Incoterm location/);
+  assert.match(monitor, /Location as per Incoterm/);
+  assert.match(monitor, /incotermLocations\.map/);
   assert.match(monitor, /Current revisions/);
   assert.match(monitor, /Import CSV/);
   assert.match(monitor, /New revision/);
@@ -61,6 +62,19 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(signIn, /signUp/);
   assert.match(signIn, /tripatra\.com/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
+});
+
+test("restricts Incoterm locations while retaining historical PO rows", async () => {
+  const [validation, migration] = await Promise.all([
+    source("app/lib/po.ts"),
+    source("supabase/migrations/20260722090000_restrict_incoterm_locations.sql"),
+  ]);
+
+  assert.match(validation, /incotermLocations = \["Jakarta", "Overseas", "Site"\]/);
+  assert.match(validation, /Location as per Incoterm must be Jakarta, Overseas, or Site/);
+  assert.match(migration, /po_revisions_location_allowed/);
+  assert.match(migration, /location in \('Jakarta', 'Overseas', 'Site'\)/);
+  assert.match(migration, /not valid/);
 });
 
 test("adds calculated procurement dashboard, bond history, and protected master data", async () => {
