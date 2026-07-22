@@ -13,7 +13,7 @@ type DatabasePORevision = {
   location: string;
   equipment_name: string;
   vendor_name: string;
-  budget: string | number;
+  budget: string | number | null;
   contract_value: string | number;
   currency_code: string;
   delivery_lead_time_weeks: number;
@@ -67,7 +67,7 @@ export function fromDatabase(record: DatabasePORevision): PORecord {
     location: record.location,
     equipmentName: record.equipment_name,
     vendorName: record.vendor_name,
-    budget: String(record.budget),
+    budget: decimal(record.budget),
     contractValue: String(record.contract_value),
     currencyCode: (currencyCodes as readonly string[]).includes(record.currency_code) ? record.currency_code as PORecord["currencyCode"] : "IDR",
     deliveryLeadTimeWeeks: Number(record.delivery_lead_time_weeks),
