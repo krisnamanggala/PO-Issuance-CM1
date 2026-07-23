@@ -147,11 +147,14 @@ test("adds normalized execution, cash, service, revision, and management-action 
   assert.match(status, /budgetUnavailablePos/);
   assert.match(dashboard, /All projects/);
   assert.match(dashboard, /selectProject/);
+  assert.match(dashboard, /Project Overview/);
+  assert.match(dashboard, /projectOverview/);
   assert.match(dashboardApi, /searchParams\.get\("project"\)/);
   assert.match(dashboardApi, /scopedRecords/);
   assert.match(dashboard, /Unpaid cash milestones/);
   assert.match(dashboard, /Supplier Concentration/);
   assert.match(status, /revisionDeltaByCurrency/);
+  assert.match(status, /projectOverview/);
   assert.match(status, /unpaidValueByCurrency/);
   assert.match(monitor, /Revision reason/);
   assert.match(alerts, /Action owner/);
