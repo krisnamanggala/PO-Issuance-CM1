@@ -63,7 +63,8 @@ export type CriticalAction = {
 };
 
 export type DashboardVisuals = {
-  projectRisk: { code: string; active: number; delayed: number; due: number; missingPB: number; expiringPB: number; missingWB: number; expiringWB: number }[];
+  projectRisk: { code: string; active: number; delayed: number; due: number; missingPB: number; expiringPB: number; missingWB: number; expiringWB: number; values: Record<string, number> }[];
+  projectOverview: { code: string; active: number; delayed: number; due: number; missingPB: number; expiringPB: number; missingWB: number; expiringWB: number; values: Record<string, number> }[];
   vendorDelays: { vendor: string; count: number; maxDays: number; values: Record<string, number> }[];
   vendorConcentration: { vendor: string; poCount: number; values: Record<string, number> }[];
   categoryExposure: { group: string; poCount: number; values: Record<string, number> }[];
@@ -270,8 +271,9 @@ export function dashboardVisuals(records: PORecord[], bonds: BondRecord[], setti
     const update = latestDelivery.get(record.id);
     if (!isActivePO(record, update)) continue;
     const projectCode = record.projectCode || "Unassigned";
-    const project = projects.get(projectCode) ?? { code: projectCode, active: 0, delayed: 0, due: 0, missingPB: 0, expiringPB: 0, missingWB: 0, expiringWB: 0 };
+    const project = projects.get(projectCode) ?? { code: projectCode, active: 0, delayed: 0, due: 0, missingPB: 0, expiringPB: 0, missingWB: 0, expiringWB: 0, values: {} };
     project.active += 1;
+    project.values[record.currencyCode] = (project.values[record.currencyCode] ?? 0) + (Number(record.contractValue) || 0);
     const delivery = deliveryStatus(record, settings, today, update);
     if (delivery === "delayed") project.delayed += 1;
     if (delivery === "due-soon") project.due += 1;
@@ -301,8 +303,10 @@ export function dashboardVisuals(records: PORecord[], bonds: BondRecord[], setti
       vendors.set(vendorName, vendor);
     }
   }
+  const projectOverview = [...projects.values()].sort((left, right) => (right.delayed + right.missingPB + right.missingWB) - (left.delayed + left.missingPB + left.missingWB) || right.active - left.active || left.code.localeCompare(right.code));
   return {
-    projectRisk: [...projects.values()].sort((left, right) => (right.delayed + right.missingPB + right.missingWB) - (left.delayed + left.missingPB + left.missingWB)).slice(0, 8),
+    projectRisk: projectOverview.slice(0, 8),
+    projectOverview,
     vendorDelays: [...vendors.values()].sort((left, right) => right.count - left.count || right.maxDays - left.maxDays).slice(0, 6),
     vendorConcentration: [...concentration.values()].sort((left, right) => right.poCount - left.poCount).slice(0, 8),
     categoryExposure: [...categories.values()].sort((left, right) => right.poCount - left.poCount),
