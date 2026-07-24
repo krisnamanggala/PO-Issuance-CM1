@@ -56,7 +56,7 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(monitor, /Payment-term milestones/);
   assert.match(monitor, /Supervision & installation assist/);
   assert.match(monitor, /Precomm\/commissioning assist/);
-  assert.match(monitor, /Cost \(IDR\)/);
+  assert.match(monitor, /Cost \(IDR, optional\)/);
   assert.match(monitor, /Location as per Incoterm/);
   assert.match(monitor, /incotermLocations\.map/);
   assert.match(monitor, /ETA to Site \(calculated\)/);
@@ -159,6 +159,21 @@ test("adds normalized execution, cash, service, revision, and management-action 
   assert.match(monitor, /Revision reason/);
   assert.match(alerts, /Action owner/);
   assert.match(alerts, /Management due date/);
+});
+
+test("allows optional service estimates when services are included", async () => {
+  const [validation, monitor, migration] = await Promise.all([
+    source("app/lib/po.ts"),
+    source("app/po-monitor.tsx"),
+    source("supabase/migrations/20260724090000_allow_optional_service_estimates.sql"),
+  ]);
+
+  assert.match(validation, /isNotApplicable\(mandaysRaw\) \? null/);
+  assert.match(validation, /isNotApplicable\(costRaw\) \? null/);
+  assert.match(monitor, /Man-days and IDR cost are optional/);
+  assert.match(monitor, /Man-days \(optional\)/);
+  assert.match(migration, /po_services_inclusion_values_check/);
+  assert.match(migration, /mandays is null or mandays >= 0/);
 });
 
 test("enforces the revised vendor and currency contract without removing historical values", async () => {
