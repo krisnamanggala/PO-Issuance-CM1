@@ -295,21 +295,17 @@ function validateService(
     return { included, mandays: null, cost: null };
   }
 
-  if (!mandaysRaw) {
-    errors.push(`${config.label} man-days is required when the service is Included.`);
-  } else if (!moneyPattern.test(mandaysRaw)) {
+  if (!isNotApplicable(mandaysRaw) && !moneyPattern.test(mandaysRaw)) {
     errors.push(`${config.label} man-days must be a non-negative number with up to two decimals.`);
   }
-  if (!costRaw) {
-    errors.push(`${config.label} cost is required when the service is Included.`);
-  } else if (!moneyPattern.test(costRaw)) {
+  if (!isNotApplicable(costRaw) && !moneyPattern.test(costRaw)) {
     errors.push(`${config.label} cost must be a non-negative IDR amount with up to two decimals.`);
   }
 
   return {
     included,
-    mandays: moneyPattern.test(mandaysRaw) ? canonicalMoney(mandaysRaw) : mandaysRaw,
-    cost: moneyPattern.test(costRaw) ? canonicalMoney(costRaw) : costRaw,
+    mandays: isNotApplicable(mandaysRaw) ? null : moneyPattern.test(mandaysRaw) ? canonicalMoney(mandaysRaw) : mandaysRaw,
+    cost: isNotApplicable(costRaw) ? null : moneyPattern.test(costRaw) ? canonicalMoney(costRaw) : costRaw,
   };
 }
 
