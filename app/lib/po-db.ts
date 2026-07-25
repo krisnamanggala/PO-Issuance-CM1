@@ -1,4 +1,4 @@
-import { currencyCodes, type PORecord, type ValidatedPOInput } from "./po";
+import { calculateEtaRosAtSite, currencyCodes, type PORecord, type ValidatedPOInput } from "./po";
 
 type DatabasePORevision = {
   id: number;
@@ -13,7 +13,7 @@ type DatabasePORevision = {
   location: string;
   equipment_name: string;
   vendor_name: string;
-  budget: string | number;
+  budget: string | number | null;
   contract_value: string | number;
   currency_code: string;
   delivery_lead_time_weeks: number;
@@ -67,12 +67,16 @@ export function fromDatabase(record: DatabasePORevision): PORecord {
     location: record.location,
     equipmentName: record.equipment_name,
     vendorName: record.vendor_name,
-    budget: String(record.budget),
+    budget: decimal(record.budget),
     contractValue: String(record.contract_value),
     currencyCode: (currencyCodes as readonly string[]).includes(record.currency_code) ? record.currency_code as PORecord["currencyCode"] : "IDR",
     deliveryLeadTimeWeeks: Number(record.delivery_lead_time_weeks),
     incoterm: record.incoterm,
-    etaRosAtSite: record.eta_ros_at_site.slice(0, 10),
+    etaRosAtSite: calculateEtaRosAtSite(
+      record.released_date.slice(0, 10),
+      record.delivery_lead_time_weeks,
+      record.location,
+    ),
     termOfPayment: record.term_of_payment,
     milestoneDetails: record.milestone_details,
     pb: Boolean(record.pb),

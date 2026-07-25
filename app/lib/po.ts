@@ -3,6 +3,12 @@ export const paymentTerms = ["T/T", "SKBDN"] as const;
 export const currencyCodes = ["IDR", "USD", "AUD", "JPY", "CNY", "GBP", "EUR"] as const;
 export const yesNoValues = ["Yes", "No"] as const;
 export const serviceInclusionValues = ["Included", "Not included"] as const;
+export const incotermLocations = ["Jakarta", "Overseas", "Site"] as const;
+export const deliveryToSiteWeeks: Record<IncotermLocation, number> = {
+  Jakarta: 2,
+  Overseas: 3,
+  Site: 0,
+};
 export const incoterms = [
   { value: "EXW", label: "EXW – Ex Works" },
   { value: "FCA", label: "FCA – Free Carrier" },
@@ -21,6 +27,7 @@ export type PurchasingGroup = (typeof purchasingGroups)[number];
 export type PaymentTerm = (typeof paymentTerms)[number];
 export type CurrencyCode = (typeof currencyCodes)[number];
 export type Incoterm = (typeof incoterms)[number]["value"];
+export type IncotermLocation = (typeof incotermLocations)[number];
 export type ServiceInclusion = (typeof serviceInclusionValues)[number];
 
 export type PORecord = {
@@ -38,7 +45,7 @@ export type PORecord = {
   location: string;
   equipmentName: string;
   vendorName: string;
-  budget: string;
+  budget: string | null;
   contractValue: string;
   currencyCode: CurrencyCode;
   deliveryLeadTimeWeeks: number;
@@ -127,7 +134,6 @@ export const csvHeaders = [
   "currency_code",
   "delivery_lead_time_weeks",
   "incoterm",
-  "eta_ros_at_site",
   "term_of_payment",
   "milestone_details",
   "pb",
@@ -148,7 +154,7 @@ export const csvHeaders = [
 // Project code remains optional for legacy PO records. Operational-status fields
 // are retained in the database for historical reporting but are no longer imported.
 export const requiredCsvHeaders = csvHeaders.filter((header) => ![
-  "project_code",
+  "project_code", "budget_idr",
 ].includes(header));
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -207,6 +213,27 @@ function canonicalIncoterm(value: string): Incoterm | null {
   const normalized = value.toUpperCase();
   const match = incoterms.find((term) => term.value === normalized);
   return match?.value ?? null;
+}
+
+function canonicalIncotermLocation(value: string): IncotermLocation | null {
+  const match = incotermLocations.find(
+    (location) => location.toLowerCase() === value.toLowerCase(),
+  );
+  return match ?? null;
+}
+
+export function calculateEtaRosAtSite(
+  releasedDate: string,
+  deliveryLeadTimeWeeks: string | number,
+  location: string,
+) {
+  const leadTimeWeeks = Number(deliveryLeadTimeWeeks);
+  const incotermLocation = canonicalIncotermLocation(location);
+  if (!isRealIsoDate(releasedDate) || !Number.isInteger(leadTimeWeeks) || leadTimeWeeks < 0 || !incotermLocation) return "";
+
+  const eta = new Date(`${releasedDate}T00:00:00Z`);
+  eta.setUTCDate(eta.getUTCDate() + ((leadTimeWeeks + deliveryToSiteWeeks[incotermLocation]) * 7));
+  return eta.toISOString().slice(0, 10);
 }
 
 function optionalIsoDate(value: unknown, label: string, errors: string[]) {
@@ -268,21 +295,17 @@ function validateService(
     return { included, mandays: null, cost: null };
   }
 
-  if (!mandaysRaw) {
-    errors.push(`${config.label} man-days is required when the service is Included.`);
-  } else if (!moneyPattern.test(mandaysRaw)) {
+  if (!isNotApplicable(mandaysRaw) && !moneyPattern.test(mandaysRaw)) {
     errors.push(`${config.label} man-days must be a non-negative number with up to two decimals.`);
   }
-  if (!costRaw) {
-    errors.push(`${config.label} cost is required when the service is Included.`);
-  } else if (!moneyPattern.test(costRaw)) {
+  if (!isNotApplicable(costRaw) && !moneyPattern.test(costRaw)) {
     errors.push(`${config.label} cost must be a non-negative IDR amount with up to two decimals.`);
   }
 
   return {
     included,
-    mandays: moneyPattern.test(mandaysRaw) ? canonicalMoney(mandaysRaw) : mandaysRaw,
-    cost: moneyPattern.test(costRaw) ? canonicalMoney(costRaw) : costRaw,
+    mandays: isNotApplicable(mandaysRaw) ? null : moneyPattern.test(mandaysRaw) ? canonicalMoney(mandaysRaw) : mandaysRaw,
+    cost: isNotApplicable(costRaw) ? null : moneyPattern.test(costRaw) ? canonicalMoney(costRaw) : costRaw,
   };
 }
 
@@ -303,10 +326,10 @@ export function validatePOInput(
   );
   const projectId = optionalId(source.projectId, "Project", errors);
   const vendorId = requiredId(source.vendorId, "Vendor", errors);
-  const location = requiredString(source.location, "Incoterm location", errors);
+  const locationRaw = requiredString(source.location, "Location as per Incoterm", errors);
   const equipmentName = requiredString(source.equipmentName, "Equipment name", errors);
   const vendorName = requiredString(source.vendorName, "Vendor name", errors);
-  const budget = requiredString(source.budget, "Budget", errors);
+  const budget = String(source.budget ?? "").trim();
   const contractValue = requiredString(source.contractValue, "Contract value", errors);
   const leadTimeRaw = requiredString(
     source.deliveryLeadTimeWeeks,
@@ -314,7 +337,6 @@ export function validatePOInput(
     errors,
   );
   const incotermRaw = requiredString(source.incoterm, "Incoterm", errors);
-  const etaRosAtSite = requiredString(source.etaRosAtSite, "ETA ROS at site", errors);
   const paymentRaw = requiredString(source.termOfPayment, "Term of payment", errors);
   const milestoneDetails = String(source.milestoneDetails ?? "").trim();
   const currencyCode = String(source.currencyCode ?? "IDR").trim().toUpperCase() || "IDR";
@@ -331,10 +353,7 @@ export function validatePOInput(
   if (!isRealIsoDate(releasedDate)) {
     errors.push("Released date must use YYYY-MM-DD.");
   }
-  if (!isRealIsoDate(etaRosAtSite)) {
-    errors.push("ETA ROS at site must use YYYY-MM-DD.");
-  }
-  if (!moneyPattern.test(budget)) {
+  if (budget && !moneyPattern.test(budget)) {
     errors.push("Budget must be a non-negative IDR amount with up to two decimals.");
   }
   if (!moneyPattern.test(contractValue)) {
@@ -345,9 +364,6 @@ export function validatePOInput(
   }
   if (milestoneDetails.length > 2000) {
     errors.push("Milestone details must be 2,000 characters or fewer.");
-  }
-  if (location.length > 250) {
-    errors.push("Incoterm location must be 250 characters or fewer.");
   }
   if (previousRevisionId && !revisionReason) {
     errors.push("Revision reason is required when creating a new revision.");
@@ -362,6 +378,9 @@ export function validatePOInput(
   if (!termOfPayment) errors.push("Term of payment must be T/T or SKBDN.");
   const incoterm = canonicalIncoterm(incotermRaw);
   if (!incoterm) errors.push("Choose an Incoterm from the approved list.");
+  const location = canonicalIncotermLocation(locationRaw);
+  if (!location) errors.push("Location as per Incoterm must be Jakarta, Overseas, or Site.");
+  const etaRosAtSite = calculateEtaRosAtSite(releasedDate, leadTimeRaw, locationRaw);
 
   const pb = stringBoolean(source.pb, "PB", errors);
   const pbValidityRaw = String(source.pbValidity ?? "").trim();
@@ -410,10 +429,10 @@ export function validatePOInput(
       projectCode: null,
       projectName: null,
       vendorId,
-      location,
+      location: location ?? "Jakarta",
       equipmentName,
       vendorName,
-      budget: canonicalMoney(budget),
+      budget: budget ? canonicalMoney(budget) : null,
       contractValue: canonicalMoney(contractValue),
       currencyCode: (currencyCodes as readonly string[]).includes(currencyCode) ? currencyCode as CurrencyCode : "IDR",
       deliveryLeadTimeWeeks: Number.parseInt(leadTimeRaw || "0", 10),
@@ -531,7 +550,7 @@ export function csvRowToInput(row: Record<string, string>): POInputFields {
     currencyCode: row.currency_code || "IDR",
     deliveryLeadTimeWeeks: row.delivery_lead_time_weeks,
     incoterm: row.incoterm,
-    etaRosAtSite: row.eta_ros_at_site,
+    etaRosAtSite: "",
     termOfPayment: row.term_of_payment,
     milestoneDetails: row.milestone_details,
     pb: row.pb,

@@ -63,7 +63,8 @@ export type CriticalAction = {
 };
 
 export type DashboardVisuals = {
-  projectRisk: { code: string; active: number; delayed: number; due: number; missingPB: number; expiringPB: number; missingWB: number; expiringWB: number }[];
+  projectRisk: { code: string; active: number; delayed: number; due: number; missingPB: number; expiringPB: number; missingWB: number; expiringWB: number; values: Record<string, number> }[];
+  projectOverview: { code: string; active: number; delayed: number; due: number; missingPB: number; expiringPB: number; missingWB: number; expiringWB: number; values: Record<string, number> }[];
   vendorDelays: { vendor: string; count: number; maxDays: number; values: Record<string, number> }[];
   vendorConcentration: { vendor: string; poCount: number; values: Record<string, number> }[];
   categoryExposure: { group: string; poCount: number; values: Record<string, number> }[];
@@ -87,7 +88,7 @@ export function daysUntil(value: string | null | undefined, today = new Date()) 
 export function deliveryStatus(record: PORecord, settings = defaultDashboardSettings, today = new Date(), update?: DeliveryUpdateRecord | null): DeliveryStatus {
   if (update?.deliveryStatus === "cancelled" || record.cancelledAt) return "cancelled";
   if (update?.deliveryStatus === "completed" || record.deliveryCompletedAt) return "completed";
-  const days = daysUntil(update?.forecastEta ?? record.etaRosAtSite, today);
+  const days = daysUntil(update?.forecastEtaSite ?? record.etaRosAtSite, today);
   if (days === null) return "missing-eta";
   if (days < 0) return "delayed";
   if (days <= settings.deliveryWarningDays) return "due-soon";
@@ -151,7 +152,7 @@ export function criticalActions(records: PORecord[], bonds: BondRecord[], settin
     const update = latestDelivery.get(record.id);
     if (!isActivePO(record, update)) continue;
     const delivery = deliveryStatus(record, settings, today, update);
-    const effectiveEta = update?.forecastEta ?? record.etaRosAtSite;
+    const effectiveEta = update?.forecastEtaSite ?? record.etaRosAtSite;
     const etaDays = daysUntil(effectiveEta, today);
     const common = {
       poNumber: record.poNumber,
@@ -216,7 +217,8 @@ export function dashboardMetrics(records: PORecord[], bonds: BondRecord[], setti
     .map((record) => daysUntil(record.etaRosAtSite, new Date(`${record.releasedDate}T00:00:00Z`)))
     .filter((days): days is number => days !== null && days >= 0)
     .map((days) => days / 7);
-  const budgetVarianceByCurrency = active.reduce<Record<string, number>>((totals, record) => {
+  const budgeted = active.filter((record) => record.budget !== null);
+  const budgetVarianceByCurrency = budgeted.reduce<Record<string, number>>((totals, record) => {
     totals[record.currencyCode] = (totals[record.currencyCode] ?? 0) + (Number(record.budget) || 0) - (Number(record.contractValue) || 0);
     return totals;
   }, {});
@@ -248,6 +250,7 @@ export function dashboardMetrics(records: PORecord[], bonds: BondRecord[], setti
     missingWarrantyBonds: wb.filter((status) => status === "missing").length,
     warrantyBondsExpiring: wb.filter((status) => status === "critical").length,
     budgetVarianceByCurrency,
+    budgetUnavailablePos: active.length - budgeted.length,
     unpaidMilestones: unpaid.length,
     unpaidValueByCurrency,
     serviceCostIdr: services.filter((item) => activeIds.has(item.poRevisionId) && item.included).reduce((sum, item) => sum + (Number(item.costIdr) || 0), 0),
@@ -268,8 +271,9 @@ export function dashboardVisuals(records: PORecord[], bonds: BondRecord[], setti
     const update = latestDelivery.get(record.id);
     if (!isActivePO(record, update)) continue;
     const projectCode = record.projectCode || "Unassigned";
-    const project = projects.get(projectCode) ?? { code: projectCode, active: 0, delayed: 0, due: 0, missingPB: 0, expiringPB: 0, missingWB: 0, expiringWB: 0 };
+    const project = projects.get(projectCode) ?? { code: projectCode, active: 0, delayed: 0, due: 0, missingPB: 0, expiringPB: 0, missingWB: 0, expiringWB: 0, values: {} };
     project.active += 1;
+    project.values[record.currencyCode] = (project.values[record.currencyCode] ?? 0) + (Number(record.contractValue) || 0);
     const delivery = deliveryStatus(record, settings, today, update);
     if (delivery === "delayed") project.delayed += 1;
     if (delivery === "due-soon") project.due += 1;
@@ -292,15 +296,17 @@ export function dashboardVisuals(records: PORecord[], bonds: BondRecord[], setti
     if (delivery === "delayed") {
       const vendorName = record.vendorName || "Unassigned vendor";
       const vendor = vendors.get(vendorName) ?? { vendor: vendorName, count: 0, maxDays: 0, values: {} };
-      const overdueDays = Math.abs(daysUntil(update?.forecastEta ?? record.etaRosAtSite, today) ?? 0);
+      const overdueDays = Math.abs(daysUntil(update?.forecastEtaSite ?? record.etaRosAtSite, today) ?? 0);
       vendor.count += 1;
       vendor.maxDays = Math.max(vendor.maxDays, overdueDays);
       vendor.values[record.currencyCode] = (vendor.values[record.currencyCode] ?? 0) + (Number(record.contractValue) || 0);
       vendors.set(vendorName, vendor);
     }
   }
+  const projectOverview = [...projects.values()].sort((left, right) => (right.delayed + right.missingPB + right.missingWB) - (left.delayed + left.missingPB + left.missingWB) || right.active - left.active || left.code.localeCompare(right.code));
   return {
-    projectRisk: [...projects.values()].sort((left, right) => (right.delayed + right.missingPB + right.missingWB) - (left.delayed + left.missingPB + left.missingWB)).slice(0, 8),
+    projectRisk: projectOverview.slice(0, 8),
+    projectOverview,
     vendorDelays: [...vendors.values()].sort((left, right) => right.count - left.count || right.maxDays - left.maxDays).slice(0, 6),
     vendorConcentration: [...concentration.values()].sort((left, right) => right.poCount - left.poCount).slice(0, 8),
     categoryExposure: [...categories.values()].sort((left, right) => right.poCount - left.poCount),

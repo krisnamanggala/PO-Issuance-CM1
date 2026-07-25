@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CriticalAction, DashboardVisuals } from "./lib/status";
 
@@ -9,12 +10,14 @@ type DashboardPayload = {
     activePos: number; activeValueByCurrency: Record<string, number>; delayedDeliveries: number; dueWithin30Days: number;
     averageLeadTimeWeeks: number; missingPerformanceBonds: number; performanceBondsExpiring: number;
     missingWarrantyBonds: number; warrantyBondsExpiring: number; deliveryBreakdown: Record<string, number>; bondBreakdown: Record<string, number>;
-    delayedValueByCurrency: Record<string, number>; budgetVarianceByCurrency: Record<string, number>;
+    delayedValueByCurrency: Record<string, number>; budgetVarianceByCurrency: Record<string, number>; budgetUnavailablePos: number;
     unpaidMilestones: number; unpaidValueByCurrency: Record<string, number>; serviceCostIdr: number;
     revisionDeltaByCurrency: Record<string, number>; paymentBreakdown: Record<string, number>;
   };
   actions: CriticalAction[];
   visuals: DashboardVisuals;
+  projects: string[];
+  selectedProject: string | null;
   isEmpty: boolean;
   refreshedAt: string;
 };
@@ -38,6 +41,9 @@ function valueLines(values: Record<string, number>) {
 }
 
 export default function DashboardOverview() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedProject = searchParams.get("project") ?? "all";
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -47,13 +53,14 @@ export default function DashboardOverview() {
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const response = await fetch("/api/dashboard", { cache: "no-store" });
+      const query = selectedProject === "all" ? "" : `?project=${encodeURIComponent(selectedProject)}`;
+      const response = await fetch(`/api/dashboard${query}`, { cache: "no-store" });
       const payload = await response.json() as DashboardPayload & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Unable to load dashboard.");
       setData(payload);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to load dashboard."); }
     finally { setLoading(false); }
-  }, []);
+  }, [selectedProject]);
 
   // Initial remote data load; subsequent refreshes are explicit user actions.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -61,13 +68,21 @@ export default function DashboardOverview() {
   const issues = useMemo(() => data?.actions.filter((action) => (priority === "all" || action.priority === priority) && (issueType === "all" || action.issueType === issueType)) ?? [], [data, issueType, priority]);
   const issueTypes = useMemo(() => [...new Set(data?.actions.map((action) => action.issueType) ?? [])], [data]);
 
+  function selectProject(project: string) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (project === "all") next.delete("project");
+    else next.set("project", project);
+    router.replace(next.size ? `/?${next.toString()}` : "/", { scroll: false });
+  }
+
   if (loading && !data) return <DashboardSkeleton />;
   if (error && !data) return <section className="page-error"><h1>Overview unavailable</h1><p>{error}</p><button className="button button-primary" onClick={() => void refresh()}>Retry</button></section>;
   if (!data) return null;
   const { metrics } = data;
+  const projectOverview = data.visuals.projectOverview.filter((project) => project.code !== "Unassigned");
   const cards = [
     { title: "Committed PO value", value: metrics.activePos, detail: <div className="currency-lines">{valueLines(metrics.activeValueByCurrency)}</div>, tone: "neutral", href: "/register?status=active", tip: "Current committed value by contract currency; currencies are never combined without an approved FX source." },
-    { title: "Budget headroom", value: "By currency", detail: <div className="currency-lines">{valueLines(metrics.budgetVarianceByCurrency)}</div>, tone: "neutral", href: "/register", tip: "Budget minus current contract value, kept separate by currency." },
+    { title: "Budget headroom", value: metrics.budgetUnavailablePos === metrics.activePos ? "Budget not set" : "By currency", detail: metrics.budgetUnavailablePos === metrics.activePos ? "No budget is available for the selected active POs." : <div className="currency-lines">{valueLines(metrics.budgetVarianceByCurrency)}{metrics.budgetUnavailablePos > 0 && <span>{metrics.budgetUnavailablePos} PO without available budget excluded</span>}</div>, tone: "neutral", href: "/register", tip: "Budget minus current contract value, kept separate by currency. POs without a budget are excluded from this calculation." },
     { title: "Past delivery forecast", value: metrics.delayedDeliveries, detail: <div className="currency-lines">{valueLines(metrics.delayedValueByCurrency)}</div>, tone: "critical", href: "/execution", tip: "Exposure on active POs past the latest forecast ETA or, when absent, the contract ETA." },
     { title: "Unpaid cash milestones", value: metrics.unpaidMilestones, detail: <div className="currency-lines">{valueLines(metrics.unpaidValueByCurrency)}</div>, tone: "warning", href: "/execution", tip: "Planned, invoiced, and on-hold milestones for current active PO revisions." },
     { title: "Current revision delta", value: "Net change", detail: <div className="currency-lines">{valueLines(metrics.revisionDeltaByCurrency)}</div>, tone: "neutral", href: "/register?view=all", tip: "Current contract value less the linked prior revision, by currency." },
@@ -82,6 +97,8 @@ export default function DashboardOverview() {
       <div className="page-actions"><Link className="button button-quiet" href="/execution">Delivery & Cash</Link><Link className="button button-quiet" href="/bonds?new=1">Add Bond</Link><Link className="button button-primary" href="/register?new=1">+ New PO</Link></div>
     </section>
     {error && <div className="notice" role="status">{error}<button onClick={() => void refresh()} className="text-button">Retry</button></div>}
+    <section className="dashboard-slicer panel" aria-label="Dashboard filters"><label>Project<select value={selectedProject} onChange={(event) => selectProject(event.target.value)}><option value="all">All projects</option>{data.projects.map((project) => <option key={project} value={project}>{project}</option>)}</select></label><span>{data.selectedProject ? `Showing Project ${data.selectedProject}` : "Showing all projects"}</span></section>
+    <section className="project-overview" aria-labelledby="project-overview-title"><div className="project-overview-heading"><div><p className="eyebrow">Portfolio snapshot</p><h2 id="project-overview-title">Project Overview</h2><p>Click a card to filter the dashboard for that project.</p></div><span>{projectOverview.length} project{projectOverview.length === 1 ? "" : "s"}</span></div><div className="project-card-list">{projectOverview.length ? projectOverview.map((project) => <button key={project.code} type="button" className={`project-overview-card${data.selectedProject === project.code ? " selected" : ""}`} onClick={() => selectProject(project.code)}><span className="project-card-code">{project.code}</span><strong>{project.active} Active PO{project.active === 1 ? "" : "s"}</strong><small className="currency-lines">{valueLines(project.values)}</small><span className="project-card-risks"><b>{project.delayed} delayed</b><b>{project.missingPB + project.expiringPB + project.missingWB + project.expiringWB} bond issue{project.missingPB + project.expiringPB + project.missingWB + project.expiringWB === 1 ? "" : "s"}</b></span></button>) : <p className="project-overview-empty">No active POs assigned to a project.</p>}</div></section>
     <section className="dashboard-kpis" aria-label="Procurement risk indicators">
       {cards.map((card) => <Link key={card.title} href={card.href} className={`dashboard-kpi ${card.tone}`} title={card.tip}><span>{card.title}</span><strong>{card.value}</strong><small>{card.detail}</small><i aria-hidden="true">→</i></Link>)}
     </section>

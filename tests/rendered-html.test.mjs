@@ -34,15 +34,21 @@ test("defines the durable PO revision contract and CSV safeguards", async () => 
   assert.match(validation, /incoterms/);
   assert.match(validation, /serviceInclusionValues/);
   assert.match(validation, /Included or Not included/);
+  assert.match(validation, /calculateEtaRosAtSite/);
+  assert.match(validation, /"project_code", "budget_idr"/);
+  assert.match(validation, /Jakarta: 2/);
+  assert.match(validation, /Overseas: 3/);
+  assert.match(validation, /Site: 0/);
 });
 
 test("ships the PO issuance monitoring surface without the starter skeleton", async () => {
-  const [page, monitor, api, access, signIn] = await Promise.all([
+  const [page, monitor, api, access, signIn, poDatabase] = await Promise.all([
     source("app/page.tsx"),
     source("app/po-monitor.tsx"),
     source("app/api/pos/import/route.ts"),
     source("app/lib/access.ts"),
     source("app/sign-in/sign-in-form.tsx"),
+    source("app/lib/po-db.ts"),
   ]);
 
   assert.match(page, /requireWorkspace/);
@@ -50,8 +56,13 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(monitor, /Payment-term milestones/);
   assert.match(monitor, /Supervision & installation assist/);
   assert.match(monitor, /Precomm\/commissioning assist/);
-  assert.match(monitor, /Cost \(IDR\)/);
-  assert.match(monitor, /Incoterm location/);
+  assert.match(monitor, /Cost \(IDR, optional\)/);
+  assert.match(monitor, /Location as per Incoterm/);
+  assert.match(monitor, /incotermLocations\.map/);
+  assert.match(monitor, /ETA to Site \(calculated\)/);
+  assert.match(monitor, /formatEtaToSite/);
+  assert.match(monitor, /PO issued date/);
+  assert.match(poDatabase, /calculateEtaRosAtSite/);
   assert.match(monitor, /Current revisions/);
   assert.match(monitor, /Import CSV/);
   assert.match(monitor, /New revision/);
@@ -61,6 +72,19 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(signIn, /signUp/);
   assert.match(signIn, /tripatra\.com/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
+});
+
+test("restricts Incoterm locations while retaining historical PO rows", async () => {
+  const [validation, migration] = await Promise.all([
+    source("app/lib/po.ts"),
+    source("supabase/migrations/20260722090000_restrict_incoterm_locations.sql"),
+  ]);
+
+  assert.match(validation, /incotermLocations = \["Jakarta", "Overseas", "Site"\]/);
+  assert.match(validation, /Location as per Incoterm must be Jakarta, Overseas, or Site/);
+  assert.match(migration, /po_revisions_location_allowed/);
+  assert.match(migration, /location in \('Jakarta', 'Overseas', 'Site'\)/);
+  assert.match(migration, /not valid/);
 });
 
 test("adds calculated procurement dashboard, bond history, and protected master data", async () => {
@@ -86,14 +110,17 @@ test("adds calculated procurement dashboard, bond history, and protected master 
 });
 
 test("adds normalized execution, cash, service, revision, and management-action data", async () => {
-  const [migration, execution, executionApi, dashboard, status, monitor, alerts] = await Promise.all([
+  const [migration, execution, executionApi, executionLib, dashboard, dashboardApi, status, monitor, alerts, deliveryMigration] = await Promise.all([
     source("supabase/migrations/20260718190000_add_executive_monitoring_data.sql"),
     source("app/execution-board.tsx"),
     source("app/api/execution/route.ts"),
+    source("app/lib/execution.ts"),
     source("app/dashboard-overview.tsx"),
+    source("app/api/dashboard/route.ts"),
     source("app/lib/status.ts"),
     source("app/po-monitor.tsx"),
     source("app/alerts-board.tsx"),
+    source("supabase/migrations/20260722113000_add_delivery_workflow_statuses.sql"),
   ]);
 
   assert.match(migration, /create table if not exists public\.delivery_updates/);
@@ -107,16 +134,46 @@ test("adds normalized execution, cash, service, revision, and management-action 
   assert.match(execution, /Delivery & Cash/);
   assert.match(execution, /Add delivery update/);
   assert.match(execution, /Add payment milestone/);
+  assert.match(execution, /Forecast ETA Site/);
+  assert.doesNotMatch(execution, /Progress \(%\)/);
+  assert.match(execution, /deliveryUpdateStatuses\.map/);
+  assert.match(executionLib, /approval-drawing/);
+  assert.match(executionLib, /at-vendor-workshop/);
+  assert.match(deliveryMigration, /at-vendor-workshop/);
   assert.match(executionApi, /validateDeliveryUpdate/);
   assert.match(executionApi, /validatePaymentMilestone/);
   assert.match(dashboard, /Budget headroom/);
+  assert.match(dashboard, /Budget not set/);
+  assert.match(status, /budgetUnavailablePos/);
+  assert.match(dashboard, /All projects/);
+  assert.match(dashboard, /selectProject/);
+  assert.match(dashboard, /Project Overview/);
+  assert.match(dashboard, /projectOverview/);
+  assert.match(dashboardApi, /searchParams\.get\("project"\)/);
+  assert.match(dashboardApi, /scopedRecords/);
   assert.match(dashboard, /Unpaid cash milestones/);
   assert.match(dashboard, /Supplier Concentration/);
   assert.match(status, /revisionDeltaByCurrency/);
+  assert.match(status, /projectOverview/);
   assert.match(status, /unpaidValueByCurrency/);
   assert.match(monitor, /Revision reason/);
   assert.match(alerts, /Action owner/);
   assert.match(alerts, /Management due date/);
+});
+
+test("allows optional service estimates when services are included", async () => {
+  const [validation, monitor, migration] = await Promise.all([
+    source("app/lib/po.ts"),
+    source("app/po-monitor.tsx"),
+    source("supabase/migrations/20260724090000_allow_optional_service_estimates.sql"),
+  ]);
+
+  assert.match(validation, /isNotApplicable\(mandaysRaw\) \? null/);
+  assert.match(validation, /isNotApplicable\(costRaw\) \? null/);
+  assert.match(monitor, /Man-days and IDR cost are optional/);
+  assert.match(monitor, /Man-days \(optional\)/);
+  assert.match(migration, /po_services_inclusion_values_check/);
+  assert.match(migration, /mandays is null or mandays >= 0/);
 });
 
 test("enforces the revised vendor and currency contract without removing historical values", async () => {

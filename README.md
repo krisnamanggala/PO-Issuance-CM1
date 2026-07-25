@@ -24,6 +24,8 @@ PO delivery status is calculated from the latest revision only:
 - **Due soon** — active PO with ETA from today through the delivery threshold (30 days by default).
 - **On track** — active PO with ETA after that threshold.
 
+For new or edited PO records, **ETA to Site** is calculated as PO issued date + delivery lead time + transit to site: **Jakarta +2 weeks**, **Overseas +3 weeks**, and **Site +0 weeks**. It is displayed as `DD/MM/YYYY` and cannot be entered manually.
+
 PB and WB are contractual details, not delivery signals. A bond is **N/A** when the related PO does not require it; otherwise the precedence is Released, Replaced, Missing, Expired, Critical (0–30 days by default), Expiring soon (31–60), and Valid. Thresholds can be changed by an administrator in Settings.
 
 ## Database migrations
@@ -50,7 +52,7 @@ Run it from Supabase SQL Editor, the Supabase CLI, or the connected Supabase mig
 
 PO and bond templates are separate downloads in their registers.
 
-- PO import requires the existing PO contract, including ISO release/ETA dates, allowed groups (`ELE`, `INS`, `ROT`, `PRO`), payment terms, Incoterms, services, valid PB/WB values, and a currency of `IDR`, `USD`, `AUD`, `JPY`, `CNY`, `GBP`, or `EUR`. PB/WB validity remains `DD/MM/YYYY` in the PO form and is normalized for storage.
+- PO import requires the PO issued date, delivery lead time, Incoterm location (`Jakarta`, `Overseas`, or `Site`), allowed groups (`ELE`, `INS`, `ROT`, `PRO`), payment terms, Incoterms, services, valid PB/WB values, and a currency of `IDR`, `USD`, `AUD`, `JPY`, `CNY`, `GBP`, or `EUR`. ETA to Site is calculated automatically. PB/WB validity remains `DD/MM/YYYY` in the PO form and is normalized for storage.
 - A supplied PO project code must already be in Project master data. Every supplied vendor must match an active Vendor master record, whose vendor code is a required integer. Imports reject duplicate PO/revision keys and do not insert a batch with validation errors.
 - Bond entry and import use only Effective date and Expiry date. Bond import requires a PO/revision match, an active unique bond identity, ISO dates, one of the allowed currencies above, and a bond number for safe CSV duplicate protection.
 
