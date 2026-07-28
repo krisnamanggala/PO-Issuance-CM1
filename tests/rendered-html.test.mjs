@@ -8,7 +8,7 @@ async function source(path) {
   return readFile(new URL(path, root), "utf8");
 }
 
-test("defines the durable PO revision contract and CSV safeguards", async () => {
+test("defines the durable PO revision contract and import safeguards", async () => {
   const [schema, validation] = await Promise.all([
     source("supabase/migrations/20260718000000_create_po_monitoring.sql"),
     source("app/lib/po.ts"),
@@ -64,7 +64,7 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(monitor, /PO issued date/);
   assert.match(poDatabase, /calculateEtaRosAtSite/);
   assert.match(monitor, /Current revisions/);
-  assert.match(monitor, /Import CSV/);
+  assert.match(monitor, /Import Excel/);
   assert.match(monitor, /New revision/);
   assert.match(api, /No records were imported/);
   assert.match(access, /workspace_members/);
@@ -72,6 +72,25 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.match(signIn, /signUp/);
   assert.match(signIn, /tripatra\.com/);
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
+});
+
+test("generates a typed Excel template for PO bulk import", async () => {
+  const [monitor, importApi, templateApi, excel] = await Promise.all([
+    source("app/po-monitor.tsx"),
+    source("app/api/pos/import/route.ts"),
+    source("app/api/pos/template/route.ts"),
+    source("app/lib/po-excel.ts"),
+  ]);
+
+  assert.match(monitor, /Download Excel template/);
+  assert.match(monitor, /accept="\.xlsx/);
+  assert.match(importApi, /parsePOExcel/);
+  assert.match(importApi, /endsWith\("\.xlsx"\)/);
+  assert.match(templateApi, /buildPOExcelTemplate/);
+  assert.match(excel, /exceljs/);
+  assert.match(excel, /dataValidation = validation/);
+  assert.match(excel, /yyyy-mm-dd/);
+  assert.match(excel, /dd\/mm\/yyyy/);
 });
 
 test("restricts Incoterm locations while retaining historical PO rows", async () => {
