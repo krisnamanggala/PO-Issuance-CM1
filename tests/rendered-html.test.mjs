@@ -74,6 +74,18 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
   assert.doesNotMatch(page, /SkeletonPreview|codex-preview/);
 });
 
+test("shows the project and purchasing-group prefix for newly registered POs", async () => {
+  const [validation, monitor] = await Promise.all([
+    source("app/lib/po.ts"),
+    source("app/po-monitor.tsx"),
+  ]);
+
+  assert.match(validation, /export function formatPOReference/);
+  assert.match(validation, /\$\{prefix\}-\$\{number\}/);
+  assert.match(validation, /startsWith/);
+  assert.match(monitor, /formatPOReference\(record\.poNumber, record\.projectCode, record\.purchasingGroup\)/);
+});
+
 test("generates a typed Excel template for PO bulk import", async () => {
   const [monitor, importApi, templateApi, excel] = await Promise.all([
     source("app/po-monitor.tsx"),
