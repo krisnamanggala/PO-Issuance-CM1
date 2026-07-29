@@ -168,6 +168,13 @@ test("adds normalized execution, cash, service, revision, and management-action 
   assert.match(dashboard, /selectProject/);
   assert.match(dashboard, /Project Overview/);
   assert.match(dashboard, /projectOverview/);
+  assert.match(dashboard, /Management cockpit/);
+  assert.match(dashboard, /Delivery health/);
+  assert.match(dashboard, /Supplier delay exposure/);
+  assert.match(dashboard, /Category exposure/);
+  assert.match(dashboard, /onMouseEnter/);
+  assert.match(dashboard, /onFocus/);
+  assert.match(dashboard, /ProjectRiskChart/);
   assert.match(dashboardApi, /searchParams\.get\("project"\)/);
   assert.match(dashboardApi, /scopedRecords/);
   assert.match(dashboard, /Unpaid cash milestones/);
@@ -242,4 +249,7 @@ test("enforces the revised vendor and currency contract without removing histori
   assert.match(uppercaseMigration, /vendors_vendor_name_uppercase/);
   assert.match(uppercaseMigration, /po_revisions_vendor_name_uppercase/);
   assert.match(styles, /\.master-panel \.panel-heading \{ border-bottom: 0; \}/);
+  assert.match(styles, /\.management-cockpit/);
+  assert.match(styles, /\.stacked-chart/);
+  assert.match(styles, /\.chart-detail/);
 });
