@@ -1,4 +1,4 @@
-import { getWorkspaceActor } from "@/app/lib/access";
+import { canEditWorkspace, getWorkspaceActor } from "@/app/lib/access";
 import { validatePOInput } from "@/app/lib/po";
 import { fromDatabase, toUpdateRecord } from "@/app/lib/po-db";
 import { createClient } from "@/app/lib/supabase/server";
@@ -16,6 +16,7 @@ function errorMessage(error: unknown) {
 export async function PUT(request: Request, context: RouteContext) {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
+  if (!canEditWorkspace(actor.role)) return Response.json({ error: "Viewer access is read-only." }, { status: 403 });
 
   const id = Number.parseInt((await context.params).id, 10);
   if (!Number.isInteger(id)) return Response.json({ error: "Invalid PO revision." }, { status: 400 });
