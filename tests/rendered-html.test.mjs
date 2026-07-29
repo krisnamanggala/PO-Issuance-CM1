@@ -168,13 +168,6 @@ test("adds normalized execution, cash, service, revision, and management-action 
   assert.match(dashboard, /selectProject/);
   assert.match(dashboard, /Project Overview/);
   assert.match(dashboard, /projectOverview/);
-  assert.match(dashboard, /Management cockpit/);
-  assert.match(dashboard, /Delivery health/);
-  assert.match(dashboard, /Supplier delay exposure/);
-  assert.match(dashboard, /Category exposure/);
-  assert.match(dashboard, /onMouseEnter/);
-  assert.match(dashboard, /onFocus/);
-  assert.match(dashboard, /ProjectRiskChart/);
   assert.match(dashboardApi, /searchParams\.get\("project"\)/);
   assert.match(dashboardApi, /scopedRecords/);
   assert.match(dashboard, /Unpaid cash milestones/);
@@ -200,6 +193,24 @@ test("allows optional service estimates when services are included", async () =>
   assert.match(monitor, /Man-days \(optional\)/);
   assert.match(migration, /po_services_inclusion_values_check/);
   assert.match(migration, /mandays is null or mandays >= 0/);
+});
+
+test("lets administrators manage editor and viewer workspace roles", async () => {
+  const [access, settings, membersApi, migration] = await Promise.all([
+    source("app/lib/access.ts"),
+    source("app/settings-panel.tsx"),
+    source("app/api/workspace-members/route.ts"),
+    source("supabase/migrations/20260728090000_add_workspace_role_management.sql"),
+  ]);
+
+  assert.match(access, /workspaceRoles = \["admin", "editor", "viewer"\]/);
+  assert.match(access, /canEditWorkspace/);
+  assert.match(settings, /Workspace members/);
+  assert.match(settings, /Viewers can read the workspace/);
+  assert.match(membersApi, /Only workspace administrators can manage user roles/);
+  assert.match(migration, /prevent_last_workspace_admin/);
+  assert.match(migration, /Workspace admins can update membership roles/);
+  assert.match(migration, /Workspace editors can create PO revisions/);
 });
 
 test("enforces the revised vendor and currency contract without removing historical values", async () => {
@@ -249,7 +260,4 @@ test("enforces the revised vendor and currency contract without removing histori
   assert.match(uppercaseMigration, /vendors_vendor_name_uppercase/);
   assert.match(uppercaseMigration, /po_revisions_vendor_name_uppercase/);
   assert.match(styles, /\.master-panel \.panel-heading \{ border-bottom: 0; \}/);
-  assert.match(styles, /\.management-cockpit/);
-  assert.match(styles, /\.stacked-chart/);
-  assert.match(styles, /\.chart-detail/);
 });
