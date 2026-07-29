@@ -1,4 +1,4 @@
-import { getWorkspaceActor } from "@/app/lib/access";
+import { canEditWorkspace, getWorkspaceActor } from "@/app/lib/access";
 import { validateBondInput } from "@/app/lib/bonds";
 import { createClient } from "@/app/lib/supabase/server";
 
@@ -16,6 +16,7 @@ function parseCsv(text: string) {
 export async function POST(request: Request) {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
+  if (!canEditWorkspace(actor.role)) return Response.json({ error: "Viewer access is read-only." }, { status: 403 });
   try {
     const formData = await request.formData(); const file = formData.get("file");
     if (!(file instanceof File)) return Response.json({ error: "Choose a bond CSV file to import." }, { status: 400 });
