@@ -1,4 +1,4 @@
-import { getWorkspaceActor } from "@/app/lib/access";
+import { canEditWorkspace, getWorkspaceActor } from "@/app/lib/access";
 import { loadDashboardData } from "@/app/lib/dashboard-data";
 import { criticalActions } from "@/app/lib/status";
 import { createClient } from "@/app/lib/supabase/server";
@@ -46,6 +46,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
+  if (!canEditWorkspace(actor.role)) return Response.json({ error: "Viewer access is read-only." }, { status: 403 });
   try {
     const body = await request.json() as AlertUpdate;
     const sourceKey = String(body.sourceKey ?? "").trim();

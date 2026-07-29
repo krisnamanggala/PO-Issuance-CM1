@@ -1,4 +1,4 @@
-import { getWorkspaceActor } from "@/app/lib/access";
+import { canEditWorkspace, getWorkspaceActor } from "@/app/lib/access";
 import { validatePOInput } from "@/app/lib/po";
 import { fromDatabase, toInsertRecord } from "@/app/lib/po-db";
 import { createClient } from "@/app/lib/supabase/server";
@@ -33,6 +33,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
+  if (!canEditWorkspace(actor.role)) return Response.json({ error: "Viewer access is read-only." }, { status: 403 });
 
   try {
     const payload = (await request.json()) as Record<string, unknown>;

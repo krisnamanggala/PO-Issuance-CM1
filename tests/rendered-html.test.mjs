@@ -202,6 +202,24 @@ test("allows optional service estimates when services are included", async () =>
   assert.match(migration, /mandays is null or mandays >= 0/);
 });
 
+test("lets administrators manage editor and viewer workspace roles", async () => {
+  const [access, settings, membersApi, migration] = await Promise.all([
+    source("app/lib/access.ts"),
+    source("app/settings-panel.tsx"),
+    source("app/api/workspace-members/route.ts"),
+    source("supabase/migrations/20260728090000_add_workspace_role_management.sql"),
+  ]);
+
+  assert.match(access, /workspaceRoles = \["admin", "editor", "viewer"\]/);
+  assert.match(access, /canEditWorkspace/);
+  assert.match(settings, /Workspace members/);
+  assert.match(settings, /Viewers can read the workspace/);
+  assert.match(membersApi, /Only workspace administrators can manage user roles/);
+  assert.match(migration, /prevent_last_workspace_admin/);
+  assert.match(migration, /Workspace admins can update membership roles/);
+  assert.match(migration, /Workspace editors can create PO revisions/);
+});
+
 test("enforces the revised vendor and currency contract without removing historical values", async () => {
   const [po, monitor, bonds, master, masterApi, migration, vendorMigration, vendorTextMigration, uppercaseMigration, styles] = await Promise.all([
     source("app/lib/po.ts"),

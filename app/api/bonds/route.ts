@@ -1,4 +1,4 @@
-import { getWorkspaceActor } from "@/app/lib/access";
+import { canEditWorkspace, getWorkspaceActor } from "@/app/lib/access";
 import { fromDatabaseBond, validateBondInput } from "@/app/lib/bonds";
 import { createClient } from "@/app/lib/supabase/server";
 
@@ -43,6 +43,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
+  if (!canEditWorkspace(actor.role)) return Response.json({ error: "Viewer access is read-only." }, { status: 403 });
   try {
     const result = validateBondInput((await request.json()) as Record<string, unknown>, actor.email);
     if (result.errors.length) return Response.json({ error: result.errors.join(" "), errors: result.errors }, { status: 400 });

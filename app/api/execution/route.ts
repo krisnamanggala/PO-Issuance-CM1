@@ -1,4 +1,4 @@
-import { getWorkspaceActor } from "@/app/lib/access";
+import { canEditWorkspace, getWorkspaceActor } from "@/app/lib/access";
 import {
   fromDatabaseDelivery, fromDatabaseMilestone, fromDatabaseService,
   validateDeliveryUpdate, validatePaymentMilestone,
@@ -39,6 +39,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
+  if (!canEditWorkspace(actor.role)) return Response.json({ error: "Viewer access is read-only." }, { status: 403 });
   try {
     const source = await request.json() as Record<string, unknown>;
     const kind = String(source.kind ?? "");
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
+  if (!canEditWorkspace(actor.role)) return Response.json({ error: "Viewer access is read-only." }, { status: 403 });
   try {
     const source = await request.json() as Record<string, unknown>;
     const id = Number(source.id);
