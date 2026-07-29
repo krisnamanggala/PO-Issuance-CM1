@@ -1,4 +1,4 @@
-import { getWorkspaceActor } from "@/app/lib/access";
+import { canEditWorkspace, getWorkspaceActor } from "@/app/lib/access";
 import { fromDatabaseBond, validateBondInput } from "@/app/lib/bonds";
 import { createClient } from "@/app/lib/supabase/server";
 
@@ -7,6 +7,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function PUT(request: Request, context: RouteContext) {
   const actor = await getWorkspaceActor();
   if (!actor) return Response.json({ error: "Sign in is required." }, { status: 401 });
+  if (!canEditWorkspace(actor.role)) return Response.json({ error: "Viewer access is read-only." }, { status: 403 });
   const id = Number((await context.params).id);
   if (!Number.isInteger(id)) return Response.json({ error: "Invalid bond." }, { status: 400 });
   try {
