@@ -120,6 +120,28 @@ export type POInputFields = {
   trainingCost: string | number;
 };
 
+/**
+ * Provides the operational PO reference used in the monitoring UI while the
+ * database keeps the SAP PO number as the durable key. Older records may
+ * already contain this prefix, so leave them unchanged rather than doubling it.
+ */
+export function formatPOReference(
+  poNumber: string,
+  projectCode: string | null | undefined,
+  purchasingGroup: string | null | undefined,
+) {
+  const number = poNumber.trim();
+  const prefix = [projectCode, purchasingGroup]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join("-");
+
+  if (!prefix || !number) return number;
+  return number.toLocaleUpperCase().startsWith(`${prefix.toLocaleUpperCase()}-`)
+    ? number
+    : `${prefix}-${number}`;
+}
+
 export const csvHeaders = [
   "po_number",
   "revision_number",
