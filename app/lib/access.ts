@@ -1,11 +1,18 @@
 import { createClient } from "@/app/lib/supabase/server";
 
+export const workspaceRoles = ["admin", "editor", "viewer"] as const;
+export type WorkspaceRole = (typeof workspaceRoles)[number];
+
 export type WorkspaceActor = {
   id: string;
   email: string;
   displayName: string;
-  role: "admin" | "editor";
+  role: WorkspaceRole;
 };
+
+export function canEditWorkspace(role: WorkspaceRole) {
+  return role === "admin" || role === "editor";
+}
 
 export async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -32,5 +39,6 @@ export async function getWorkspaceActor(existingUser?: AuthenticatedUser): Promi
     typeof user.user_metadata.full_name === "string" && user.user_metadata.full_name.trim()
       ? user.user_metadata.full_name.trim()
       : user.email;
-  return { id: user.id, email: user.email, displayName, role: data.role === "admin" ? "admin" : "editor" };
+  const role = (workspaceRoles as readonly string[]).includes(data.role) ? data.role as WorkspaceRole : "editor";
+  return { id: user.id, email: user.email, displayName, role };
 }
