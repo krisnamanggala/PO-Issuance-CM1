@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import type { WorkspaceRole } from "../lib/access";
 
 type WorkspaceShellProps = {
   active: "overview" | "register" | "execution" | "bonds" | "alerts" | "master" | "settings";
-  user: { displayName: string; email: string; role: "admin" | "editor" };
+  user: { displayName: string; email: string; role: WorkspaceRole };
   children: ReactNode;
 };
 
