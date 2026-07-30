@@ -33,7 +33,7 @@ export async function GET() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bonds")
-    .select("*, po_revisions(po_number, revision_number, vendor_name, projects(project_code))")
+    .select("*, po_revisions(po_number, revision_number, vendor_name, purchasing_group, projects(project_code))")
     .order("expiry_date", { ascending: true, nullsFirst: false })
     .order("id", { ascending: false });
   if (error) return Response.json({ error: "The bond register could not be loaded." }, { status: 500 });
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const bondNumber = await generateBondNumber(supabase, result.value.po_revision_id, result.value.bond_type);
     if (!bondNumber) return Response.json({ error: "The selected PO revision is no longer available." }, { status: 400 });
     const insertValue = { ...result.value, bond_number: bondNumber };
-    const { data, error } = await supabase.from("bonds").insert(insertValue).select("*, po_revisions(po_number, revision_number, vendor_name, projects(project_code))").single();
+    const { data, error } = await supabase.from("bonds").insert(insertValue).select("*, po_revisions(po_number, revision_number, vendor_name, purchasing_group, projects(project_code))").single();
     if (error) throw error;
     await supabase.from("bond_history").insert({ bond_id: data.id, action_type: "created", new_value: insertValue, acted_by: actor.email });
     return Response.json({ record: fromDatabaseBond(data as never) }, { status: 201 });
