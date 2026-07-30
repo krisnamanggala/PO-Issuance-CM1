@@ -91,6 +91,12 @@ test("shows the project and purchasing-group prefix for newly registered POs", a
   assert.match(bondsApi, /purchasing_group/);
 });
 
+test("separates the saved notice from master-data cards", async () => {
+  const styles = await source("app/globals.css");
+
+  assert.match(styles, /\.notice \+ \.master-grid \{ margin-top: 18px; \}/);
+});
+
 test("generates a typed Excel template for PO bulk import", async () => {
   const [monitor, importApi, templateApi, excel] = await Promise.all([
     source("app/po-monitor.tsx"),
