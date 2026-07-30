@@ -88,7 +88,7 @@ type DatabaseBond = {
   remarks: string;
   created_at: string;
   updated_at: string;
-  po_revisions?: { po_number?: string; revision_number?: number; vendor_name?: string; projects?: { project_code?: string | null } | null } | null;
+  po_revisions?: { po_number?: string; revision_number?: number; vendor_name?: string; purchasing_group?: string | null; projects?: { project_code?: string | null } | null } | null;
 };
 
 function date(value: string | null) { return value ? value.slice(0, 10) : null; }
@@ -101,6 +101,7 @@ export function fromDatabaseBond(record: DatabaseBond): BondRecord {
     revisionNumber: Number(record.po_revisions?.revision_number ?? 0),
     vendorName: record.po_revisions?.vendor_name ?? "—",
     projectCode: record.po_revisions?.projects?.project_code ?? null,
+    purchasingGroup: record.po_revisions?.purchasing_group ?? null,
     bondType: record.bond_type,
     bondNumber: record.bond_number,
     issuingBank: record.issuing_bank,
