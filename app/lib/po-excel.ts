@@ -7,6 +7,7 @@ import {
   paymentTerms,
   purchasingGroups,
   serviceInclusionValues,
+  scopeTypes,
   yesNoValues,
   type POInputFields,
 } from "./po";
@@ -87,15 +88,15 @@ export async function buildPOExcelTemplate() {
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet("PO Register", { views: [{ state: "frozen", ySplit: headerRowNumber }] });
-  sheet.mergeCells("A1:AB1");
+  sheet.mergeCells("A1:AE1");
   sheet.getCell("A1").value = "TPEC CM1 PO Register Import Template";
   sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FF172467" } };
   sheet.getCell("A1").alignment = { vertical: "middle" };
   sheet.getRow(1).height = 28;
-  sheet.mergeCells("A2:AB2");
-  sheet.getCell("A2").value = "Fill rows from row 5 onward. Use the dropdowns where available; do not rename or rearrange the column headers.";
+  sheet.mergeCells("A2:AE2");
+  sheet.getCell("A2").value = "Fill rows from row 5 onward. Enter the Base and Provisional committed values; their sum is stored as the total PO committed value. Use the dropdowns where available; do not rename or rearrange the column headers.";
   sheet.getCell("A2").font = { italic: true, color: { argb: "FF5C647A" } };
-  sheet.mergeCells("A3:AB3");
+  sheet.mergeCells("A3:AE3");
   sheet.getCell("A3").value = "Dates and numbers are typed cells. Project code and vendor name must already exist in Master Data before import.";
   sheet.getCell("A3").font = { italic: true, color: { argb: "FF5C647A" } };
   sheet.getRow(headerRowNumber).values = [...csvHeaders];
@@ -107,15 +108,17 @@ export async function buildPOExcelTemplate() {
     cell.alignment = { vertical: "middle", wrapText: true };
     cell.border = { bottom: { style: "medium", color: { argb: "FF8DC63F" } } };
   });
-  sheet.autoFilter = `A${headerRowNumber}:AB${headerRowNumber}`;
+  sheet.autoFilter = `A${headerRowNumber}:AE${headerRowNumber}`;
 
-  const widths = [24, 15, 15, 16, 16, 14, 34, 38, 18, 20, 14, 20, 14, 18, 38, 10, 15, 10, 15, 22, 18, 22, 22, 18, 22, 14, 18, 20];
+  const widths = [24, 15, 15, 16, 16, 14, 34, 38, 18, 20, 20, 22, 24, 14, 20, 14, 18, 38, 10, 15, 10, 15, 22, 18, 22, 22, 18, 22, 14, 18, 20];
   widths.forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
   sheet.getColumn(headerByColumn.get("po_number") ?? 1).numFmt = "@";
   sheet.getColumn(headerByColumn.get("revision_number") ?? 2).numFmt = "0";
   sheet.getColumn(headerByColumn.get("released_date") ?? 3).numFmt = "yyyy-mm-dd";
   sheet.getColumn(headerByColumn.get("budget_idr") ?? 9).numFmt = "#,##0.00";
   sheet.getColumn(headerByColumn.get("contract_value_idr") ?? 10).numFmt = "#,##0.00";
+  sheet.getColumn(headerByColumn.get("base_scope_committed_value") ?? 12).numFmt = "#,##0.00";
+  sheet.getColumn(headerByColumn.get("provisional_scope_committed_value") ?? 13).numFmt = "#,##0.00";
   sheet.getColumn(headerByColumn.get("delivery_lead_time_weeks") ?? 12).numFmt = "0";
   sheet.getColumn(headerByColumn.get("pb_validity") ?? 17).numFmt = "dd/mm/yyyy";
   sheet.getColumn(headerByColumn.get("wb_validity") ?? 19).numFmt = "dd/mm/yyyy";
@@ -126,13 +129,14 @@ export async function buildPOExcelTemplate() {
   addColumnValidation(sheet, "purchasing_group", listValidation(purchasingGroups));
   addColumnValidation(sheet, "location", listValidation(incotermLocations));
   addColumnValidation(sheet, "currency_code", listValidation(currencyCodes));
+  addColumnValidation(sheet, "scope_type", listValidation(scopeTypes));
   addColumnValidation(sheet, "incoterm", listValidation(incoterms.map((term) => term.value)));
   addColumnValidation(sheet, "term_of_payment", listValidation(paymentTerms));
   addColumnValidation(sheet, "pb", listValidation(yesNoValues));
   addColumnValidation(sheet, "wb", listValidation(yesNoValues));
   ["supervision_installation_assist_included", "precomm_commissioning_assist_included", "training_included"].forEach((header) => addColumnValidation(sheet, header as (typeof csvHeaders)[number], listValidation(serviceInclusionValues)));
   ["revision_number", "delivery_lead_time_weeks"].forEach((header) => addColumnValidation(sheet, header as (typeof csvHeaders)[number], { type: "whole", operator: "greaterThanOrEqual", allowBlank: false, formulae: [0] }));
-  ["budget_idr", "contract_value_idr", "supervision_installation_assist_mandays", "supervision_installation_assist_cost_idr", "precomm_commissioning_assist_mandays", "precomm_commissioning_assist_cost_idr", "training_mandays", "training_cost_idr"].forEach((header) => addColumnValidation(sheet, header as (typeof csvHeaders)[number], { type: "decimal", operator: "greaterThanOrEqual", allowBlank: header !== "contract_value_idr", formulae: [0] }));
+  ["budget_idr", "contract_value_idr", "base_scope_committed_value", "provisional_scope_committed_value", "supervision_installation_assist_mandays", "supervision_installation_assist_cost_idr", "precomm_commissioning_assist_mandays", "precomm_commissioning_assist_cost_idr", "training_mandays", "training_cost_idr"].forEach((header) => addColumnValidation(sheet, header as (typeof csvHeaders)[number], { type: "decimal", operator: "greaterThanOrEqual", allowBlank: header !== "base_scope_committed_value" && header !== "provisional_scope_committed_value", formulae: [0] }));
 
   const instructions = workbook.addWorksheet("Instructions");
   instructions.columns = [{ width: 34 }, { width: 22 }, { width: 70 }];
@@ -145,7 +149,10 @@ export async function buildPOExcelTemplate() {
     ["project_code", "Text", "Optional; must exactly match active Project Master Data when entered."],
     ["vendor_name", "Text", "Required; must exactly match Vendor Master Data."],
     ["budget_idr", "Decimal", "Optional; zero or greater."],
-    ["contract_value_idr", "Decimal", "Required; zero or greater."],
+    ["scope_type", "Dropdown", "Required: Base scope, Provisional scope, or Combination."],
+    ["base_scope_committed_value", "Decimal", "Enter the base-scope commitment. Use 0 for a Provisional scope PO."],
+    ["provisional_scope_committed_value", "Decimal", "Enter the amount to be backcharged to the client. Use 0 for a Base scope PO."],
+    ["contract_value_idr", "Calculated", "Optional legacy column. The web always stores Base scope + Provisional scope as the total PO committed value."],
     ["pb_validity / wb_validity", "Date or text", "Use a date when PB/WB is Yes; enter N/A when No."],
     ["Service estimates", "Decimal or blank", "Optional when service is Included; if entered, zero or greater. Leave blank/N/A when Not included."],
     ["ETA to Site", "Calculated", "Do not add a column. The web calculates it from PO issued date, lead time, and location."],
@@ -160,6 +167,7 @@ export function rowToPOInput(row: Record<string, string>): POInputFields {
     previousRevisionId: "", revisionReason: "", poNumber: row.po_number, revisionNumber: row.revision_number,
     releasedDate: row.released_date, purchasingGroup: row.purchasing_group, projectId: "", vendorId: "", location: row.location,
     equipmentName: row.equipment_name, vendorName: row.vendor_name, budget: row.budget_idr, contractValue: row.contract_value_idr,
+    scopeType: row.scope_type, baseScopeCommittedValue: row.base_scope_committed_value, provisionalScopeCommittedValue: row.provisional_scope_committed_value,
     currencyCode: row.currency_code || "IDR", deliveryLeadTimeWeeks: row.delivery_lead_time_weeks, incoterm: row.incoterm,
     etaRosAtSite: "", termOfPayment: row.term_of_payment, milestoneDetails: row.milestone_details, pb: row.pb,
     pbValidity: row.pb_validity, wb: row.wb, wbValidity: row.wb_validity, deliveryCompletedAt: "", cancelledAt: "",
