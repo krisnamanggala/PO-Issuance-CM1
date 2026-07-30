@@ -225,6 +225,32 @@ test("allows optional service estimates when services are included", async () =>
   assert.match(migration, /mandays is null or mandays >= 0/);
 });
 
+test("separates base and provisional scope commitments without double-counting PO value", async () => {
+  const [migration, po, database, monitor, status, dashboard, excel] = await Promise.all([
+    source("supabase/migrations/20260730090000_add_po_committed_scope_values.sql"),
+    source("app/lib/po.ts"),
+    source("app/lib/po-db.ts"),
+    source("app/po-monitor.tsx"),
+    source("app/lib/status.ts"),
+    source("app/dashboard-overview.tsx"),
+    source("app/lib/po-excel.ts"),
+  ]);
+
+  assert.match(migration, /base_scope_committed_value/);
+  assert.match(migration, /provisional_scope_committed_value/);
+  assert.match(migration, /contract_value = base_scope_committed_value \+ provisional_scope_committed_value/);
+  assert.match(po, /scopeTypes = \["Base scope", "Provisional scope", "Combination"\]/);
+  assert.match(po, /Combination scope requires a base and provisional committed value/);
+  assert.match(database, /base_scope_committed_value/);
+  assert.match(monitor, /Provisional scope committed value/);
+  assert.match(monitor, /Total committed value/);
+  assert.match(status, /baseScopeCommittedValueByCurrency/);
+  assert.match(status, /provisionalScopeCommittedValueByCurrency/);
+  assert.match(dashboard, /Base scope commitment/);
+  assert.match(dashboard, /Provisional scope commitment/);
+  assert.match(excel, /base_scope_committed_value/);
+});
+
 test("lets administrators manage editor and viewer workspace roles", async () => {
   const [access, settings, membersApi, migration] = await Promise.all([
     source("app/lib/access.ts"),

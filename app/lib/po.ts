@@ -3,6 +3,7 @@ export const paymentTerms = ["T/T", "SKBDN"] as const;
 export const currencyCodes = ["IDR", "USD", "AUD", "JPY", "CNY", "GBP", "EUR"] as const;
 export const yesNoValues = ["Yes", "No"] as const;
 export const serviceInclusionValues = ["Included", "Not included"] as const;
+export const scopeTypes = ["Base scope", "Provisional scope", "Combination"] as const;
 export const incotermLocations = ["Jakarta", "Overseas", "Site"] as const;
 export const deliveryToSiteWeeks: Record<IncotermLocation, number> = {
   Jakarta: 2,
@@ -29,6 +30,7 @@ export type CurrencyCode = (typeof currencyCodes)[number];
 export type Incoterm = (typeof incoterms)[number]["value"];
 export type IncotermLocation = (typeof incotermLocations)[number];
 export type ServiceInclusion = (typeof serviceInclusionValues)[number];
+export type ScopeType = (typeof scopeTypes)[number];
 
 export type PORecord = {
   id: number;
@@ -47,6 +49,9 @@ export type PORecord = {
   vendorName: string;
   budget: string | null;
   contractValue: string;
+  scopeType: ScopeType;
+  baseScopeCommittedValue: string;
+  provisionalScopeCommittedValue: string;
   currencyCode: CurrencyCode;
   deliveryLeadTimeWeeks: number;
   incoterm: Incoterm;
@@ -95,6 +100,9 @@ export type POInputFields = {
   vendorName: string;
   budget: string | number;
   contractValue: string | number;
+  scopeType: string;
+  baseScopeCommittedValue: string | number;
+  provisionalScopeCommittedValue: string | number;
   currencyCode: string;
   deliveryLeadTimeWeeks: string | number;
   incoterm: string;
@@ -153,6 +161,9 @@ export const csvHeaders = [
   "vendor_name",
   "budget_idr",
   "contract_value_idr",
+  "scope_type",
+  "base_scope_committed_value",
+  "provisional_scope_committed_value",
   "currency_code",
   "delivery_lead_time_weeks",
   "incoterm",
@@ -242,6 +253,26 @@ function canonicalIncotermLocation(value: string): IncotermLocation | null {
     (location) => location.toLowerCase() === value.toLowerCase(),
   );
   return match ?? null;
+}
+
+function canonicalScopeType(value: string): ScopeType | null {
+  const match = scopeTypes.find((scopeType) => scopeType.toLowerCase() === value.toLowerCase());
+  return match ?? null;
+}
+
+function moneyToCents(value: string) {
+  const [whole, fraction = ""] = value.split(".");
+  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+}
+
+function centsToMoney(cents: number) {
+  const whole = Math.floor(cents / 100);
+  const fraction = Math.round(cents % 100);
+  return fraction === 0 ? String(whole) : `${whole}.${String(fraction).padStart(2, "0")}`;
+}
+
+function sumMoney(values: string[]) {
+  return centsToMoney(values.reduce((total, value) => total + moneyToCents(value), 0));
 }
 
 export function calculateEtaRosAtSite(
@@ -352,7 +383,11 @@ export function validatePOInput(
   const equipmentName = requiredString(source.equipmentName, "Equipment name", errors);
   const vendorName = requiredString(source.vendorName, "Vendor name", errors);
   const budget = String(source.budget ?? "").trim();
-  const contractValue = requiredString(source.contractValue, "Contract value", errors);
+  const suppliedContractValue = String(source.contractValue ?? "").trim();
+  const scopeTypeRaw = String(source.scopeType ?? "Base scope").trim() || "Base scope";
+  const scopeType = canonicalScopeType(scopeTypeRaw);
+  const baseScopeRaw = String(source.baseScopeCommittedValue ?? "").trim();
+  const provisionalScopeRaw = String(source.provisionalScopeCommittedValue ?? "").trim();
   const leadTimeRaw = requiredString(
     source.deliveryLeadTimeWeeks,
     "Delivery lead time",
@@ -378,9 +413,16 @@ export function validatePOInput(
   if (budget && !moneyPattern.test(budget)) {
     errors.push("Budget must be a non-negative IDR amount with up to two decimals.");
   }
-  if (!moneyPattern.test(contractValue)) {
-    errors.push("Contract value must be a non-negative IDR amount with up to two decimals.");
-  }
+  if (!scopeType) errors.push("Scope type must be Base scope, Provisional scope, or Combination.");
+  const hasScopeValues = Boolean(baseScopeRaw || provisionalScopeRaw);
+  // Legacy API/import payloads without a scope allocation are treated as base scope.
+  const baseScopeValue = hasScopeValues ? baseScopeRaw || "0" : suppliedContractValue;
+  const provisionalScopeValue = hasScopeValues ? provisionalScopeRaw || "0" : "0";
+  if (!moneyPattern.test(baseScopeValue || "")) errors.push("Base scope committed value must be a non-negative amount with up to two decimals.");
+  if (!moneyPattern.test(provisionalScopeValue || "")) errors.push("Provisional scope committed value must be a non-negative amount with up to two decimals.");
+  if (scopeType === "Base scope" && provisionalScopeValue && moneyPattern.test(provisionalScopeValue) && moneyToCents(provisionalScopeValue) !== 0) errors.push("Provisional scope committed value must be zero for Base scope.");
+  if (scopeType === "Provisional scope" && baseScopeValue && moneyPattern.test(baseScopeValue) && moneyToCents(baseScopeValue) !== 0) errors.push("Base scope committed value must be zero for Provisional scope.");
+  if (scopeType === "Combination" && (!moneyPattern.test(baseScopeValue) || !moneyPattern.test(provisionalScopeValue) || moneyToCents(baseScopeValue) === 0 || moneyToCents(provisionalScopeValue) === 0)) errors.push("Combination scope requires a base and provisional committed value greater than zero.");
   if (!(currencyCodes as readonly string[]).includes(currencyCode)) {
     errors.push("Currency must be IDR, USD, AUD, JPY, CNY, GBP, or EUR.");
   }
@@ -455,7 +497,12 @@ export function validatePOInput(
       equipmentName,
       vendorName,
       budget: budget ? canonicalMoney(budget) : null,
-      contractValue: canonicalMoney(contractValue),
+      contractValue: moneyPattern.test(baseScopeValue) && moneyPattern.test(provisionalScopeValue)
+        ? sumMoney([baseScopeValue, provisionalScopeValue])
+        : suppliedContractValue,
+      scopeType: scopeType ?? "Base scope",
+      baseScopeCommittedValue: moneyPattern.test(baseScopeValue) ? canonicalMoney(baseScopeValue) : baseScopeValue,
+      provisionalScopeCommittedValue: moneyPattern.test(provisionalScopeValue) ? canonicalMoney(provisionalScopeValue) : provisionalScopeValue,
       currencyCode: (currencyCodes as readonly string[]).includes(currencyCode) ? currencyCode as CurrencyCode : "IDR",
       deliveryLeadTimeWeeks: Number.parseInt(leadTimeRaw || "0", 10),
       incoterm: incoterm ?? "EXW",
@@ -569,6 +616,9 @@ export function csvRowToInput(row: Record<string, string>): POInputFields {
     vendorName: row.vendor_name,
     budget: row.budget_idr,
     contractValue: row.contract_value_idr,
+    scopeType: row.scope_type,
+    baseScopeCommittedValue: row.base_scope_committed_value,
+    provisionalScopeCommittedValue: row.provisional_scope_committed_value,
     currencyCode: row.currency_code || "IDR",
     deliveryLeadTimeWeeks: row.delivery_lead_time_weeks,
     incoterm: row.incoterm,

@@ -132,6 +132,14 @@ export function currencyTotals(records: PORecord[]) {
   }, {});
 }
 
+function scopeCurrencyTotals(records: PORecord[], scope: "base" | "provisional") {
+  return records.reduce<Record<string, number>>((totals, record) => {
+    const value = Number(scope === "base" ? record.baseScopeCommittedValue : record.provisionalScopeCommittedValue);
+    if (Number.isFinite(value)) totals[record.currencyCode] = (totals[record.currencyCode] ?? 0) + value;
+    return totals;
+  }, {});
+}
+
 function actionPriority(days: number | null, kind: "delivery" | "bond" | "data"): Priority {
   if (kind === "data") return "medium";
   if (days === null) return "critical";
@@ -220,7 +228,7 @@ export function dashboardMetrics(records: PORecord[], bonds: BondRecord[], setti
     .map((days) => days / 7);
   const budgeted = active.filter((record) => record.budget !== null);
   const budgetVarianceByCurrency = budgeted.reduce<Record<string, number>>((totals, record) => {
-    totals[record.currencyCode] = (totals[record.currencyCode] ?? 0) + (Number(record.budget) || 0) - (Number(record.contractValue) || 0);
+    totals[record.currencyCode] = (totals[record.currencyCode] ?? 0) + (Number(record.budget) || 0) - (Number(record.baseScopeCommittedValue) || 0);
     return totals;
   }, {});
   const unpaid = milestones.filter((item) => activeIds.has(item.poRevisionId) && item.milestoneStatus !== "paid");
@@ -242,6 +250,8 @@ export function dashboardMetrics(records: PORecord[], bonds: BondRecord[], setti
   return {
     activePos: active.length,
     activeValueByCurrency: currencyTotals(active),
+    baseScopeCommittedValueByCurrency: scopeCurrencyTotals(active, "base"),
+    provisionalScopeCommittedValueByCurrency: scopeCurrencyTotals(active, "provisional"),
     delayedDeliveries: delivery.filter((status) => status === "delayed").length,
     dueWithin30Days: delivery.filter((status) => status === "due-soon").length,
     delayedValueByCurrency,
