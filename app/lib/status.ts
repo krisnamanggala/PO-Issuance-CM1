@@ -51,6 +51,7 @@ export type CriticalAction = {
   poRevisionId: number;
   vendorName: string;
   projectCode: string | null;
+  purchasingGroup: string;
   equipmentName: string;
   relevantDate: string | null;
   daysRemaining: number | null;
@@ -168,6 +169,7 @@ export function criticalActions(records: PORecord[], bonds: BondRecord[], settin
       poRevisionId: record.id,
       vendorName: record.vendorName,
       projectCode: record.projectCode,
+      purchasingGroup: record.purchasingGroup,
       equipmentName: record.equipmentName,
       currencyCode: record.currencyCode,
       value: record.contractValue,
