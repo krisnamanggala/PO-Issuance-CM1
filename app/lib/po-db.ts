@@ -15,6 +15,9 @@ type DatabasePORevision = {
   vendor_name: string;
   budget: string | number | null;
   contract_value: string | number;
+  scope_type: PORecord["scopeType"];
+  base_scope_committed_value: string | number;
+  provisional_scope_committed_value: string | number;
   currency_code: string;
   delivery_lead_time_weeks: number;
   incoterm: PORecord["incoterm"];
@@ -69,6 +72,9 @@ export function fromDatabase(record: DatabasePORevision): PORecord {
     vendorName: record.vendor_name,
     budget: decimal(record.budget),
     contractValue: String(record.contract_value),
+    scopeType: record.scope_type ?? "Base scope",
+    baseScopeCommittedValue: String(record.base_scope_committed_value ?? record.contract_value),
+    provisionalScopeCommittedValue: String(record.provisional_scope_committed_value ?? 0),
     currencyCode: (currencyCodes as readonly string[]).includes(record.currency_code) ? record.currency_code as PORecord["currencyCode"] : "IDR",
     deliveryLeadTimeWeeks: Number(record.delivery_lead_time_weeks),
     incoterm: record.incoterm,
@@ -116,6 +122,9 @@ export function toInsertRecord(value: ValidatedPOInput) {
     vendor_name: value.vendorName,
     budget: value.budget,
     contract_value: value.contractValue,
+    scope_type: value.scopeType,
+    base_scope_committed_value: value.baseScopeCommittedValue,
+    provisional_scope_committed_value: value.provisionalScopeCommittedValue,
     currency_code: value.currencyCode,
     delivery_lead_time_weeks: value.deliveryLeadTimeWeeks,
     incoterm: value.incoterm,
@@ -168,6 +177,9 @@ export function toUpdateRecord(value: ValidatedPOInput) {
     vendor_name: record.vendor_name,
     budget: record.budget,
     contract_value: record.contract_value,
+    scope_type: record.scope_type,
+    base_scope_committed_value: record.base_scope_committed_value,
+    provisional_scope_committed_value: record.provisional_scope_committed_value,
     currency_code: record.currency_code,
     delivery_lead_time_weeks: record.delivery_lead_time_weeks,
     incoterm: record.incoterm,
