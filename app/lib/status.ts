@@ -13,6 +13,7 @@ export type BondRecord = {
   revisionNumber: number;
   vendorName: string;
   projectCode: string | null;
+  purchasingGroup: string | null;
   bondType: BondType;
   bondNumber: string | null;
   issuingBank: string | null;

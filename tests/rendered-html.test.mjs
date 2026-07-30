@@ -75,15 +75,20 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
 });
 
 test("shows the project and purchasing-group prefix for newly registered POs", async () => {
-  const [validation, monitor] = await Promise.all([
+  const [validation, monitor, bonds, bondsApi] = await Promise.all([
     source("app/lib/po.ts"),
     source("app/po-monitor.tsx"),
+    source("app/bond-register.tsx"),
+    source("app/api/bonds/route.ts"),
   ]);
 
   assert.match(validation, /export function formatPOReference/);
   assert.match(validation, /\$\{prefix\}-\$\{number\}/);
   assert.match(validation, /startsWith/);
   assert.match(monitor, /formatPOReference\(record\.poNumber, record\.projectCode, record\.purchasingGroup\)/);
+  assert.match(bonds, /formatPOReference\(record\.poNumber, record\.projectCode, record\.purchasingGroup\)/);
+  assert.match(bonds, /formatPOReference\(po\.poNumber, po\.projectCode, po\.purchasingGroup\)/);
+  assert.match(bondsApi, /purchasing_group/);
 });
 
 test("generates a typed Excel template for PO bulk import", async () => {
