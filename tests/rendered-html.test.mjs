@@ -75,11 +75,13 @@ test("ships the PO issuance monitoring surface without the starter skeleton", as
 });
 
 test("shows the project and purchasing-group prefix for newly registered POs", async () => {
-  const [validation, monitor, bonds, bondsApi] = await Promise.all([
+  const [validation, monitor, bonds, bondsApi, dashboard, status] = await Promise.all([
     source("app/lib/po.ts"),
     source("app/po-monitor.tsx"),
     source("app/bond-register.tsx"),
     source("app/api/bonds/route.ts"),
+    source("app/dashboard-overview.tsx"),
+    source("app/lib/status.ts"),
   ]);
 
   assert.match(validation, /export function formatPOReference/);
@@ -89,6 +91,8 @@ test("shows the project and purchasing-group prefix for newly registered POs", a
   assert.match(bonds, /formatPOReference\(record\.poNumber, record\.projectCode, record\.purchasingGroup\)/);
   assert.match(bonds, /formatPOReference\(po\.poNumber, po\.projectCode, po\.purchasingGroup\)/);
   assert.match(bondsApi, /purchasing_group/);
+  assert.match(status, /purchasingGroup: record\.purchasingGroup/);
+  assert.match(dashboard, /formatPOReference\(action\.poNumber, action\.projectCode, action\.purchasingGroup\)/);
 });
 
 test("separates the saved notice from master-data cards", async () => {
