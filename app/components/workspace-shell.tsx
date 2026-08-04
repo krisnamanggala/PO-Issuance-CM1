@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { WorkspaceRole } from "../lib/access";
 
 type WorkspaceShellProps = {
-  active: "overview" | "register" | "execution" | "bonds" | "alerts" | "master" | "settings";
+  active: "overview" | "register" | "execution" | "bonds" | "alerts" | "vendors" | "master" | "settings";
   user: { displayName: string; email: string; role: WorkspaceRole };
   children: ReactNode;
 };
@@ -14,6 +14,7 @@ const navigation = [
   { key: "execution", href: "/execution", label: "Delivery & Cash" },
   { key: "bonds", href: "/bonds", label: "Bond Register" },
   { key: "alerts", href: "/alerts", label: "Alerts" },
+  { key: "vendors", href: "/vendors", label: "Vendors" },
   { key: "master", href: "/master-data", label: "Master Data" },
   { key: "settings", href: "/settings", label: "Settings" },
 ] as const;
